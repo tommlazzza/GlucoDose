@@ -61,7 +61,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto no-scrollbar p-6 pb-24 animate-in slide-in-from-right duration-300">
+    <div className="flex flex-col h-full overflow-y-auto no-scrollbar p-6 pb-48 animate-in slide-in-from-right duration-300">
       <header className="flex items-center gap-4 mb-6 pt-2">
         <h2 className={`text-2xl font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>{t.profile}</h2>
       </header>

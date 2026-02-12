@@ -146,7 +146,7 @@ export default function App() {
       case 3:
         return (
           <div className="flex flex-col items-center text-center animate-in fade-in slide-in-from-right-4 duration-500 w-full h-full overflow-hidden">
-            <h2 className="text-2xl font-black text-textMain mb-1 mt-4">Imposta Fattori</h2>
+            <h2 className="text-2xl font-black text-textMain mb-1">Imposta Fattori</h2>
             <p className="text-textMuted text-[10px] font-bold uppercase tracking-widest mb-4">ISF = Sensibilità | ICR = Rapporto Carbo</p>
             
             <div className="w-full flex-1 overflow-hidden flex flex-col mb-4">
@@ -172,53 +172,59 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <div className="p-2 rounded-[2rem] bg-appBg/50 border border-textMain/5 h-full overflow-y-auto no-scrollbar">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-textMain/5">
-                        <th className="py-2 px-2 text-[8px] font-black uppercase text-textMuted">Orario</th>
-                        <th className="py-2 text-[8px] font-black uppercase text-textMuted">ISF</th>
-                        <th className="py-2 text-[8px] font-black uppercase text-textMuted text-center">ICR</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-textMain/5">
-                      {tempSettings.insulinSegments.map((seg, idx) => (
-                        <tr key={idx}>
-                          <td className="py-2 px-2">
-                            <div className="flex flex-col text-left">
-                              <span className="text-[11px] font-black text-primary leading-none">{seg.startTime}</span>
-                              <span className="text-[7px] font-bold text-textMuted uppercase">{(t as any)[seg.labelKey]}</span>
-                            </div>
-                          </td>
-                          <td className="py-1">
-                            <input 
-                              type="number" 
-                              step="0.1"
-                              value={seg.isf} 
-                              onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value) || 0)}
-                              className="w-12 p-1.5 rounded-lg text-center font-bold text-xs bg-white border border-transparent focus:border-primary outline-none shadow-sm"
-                            />
-                          </td>
-                          <td className="py-1 flex justify-center">
-                            <input 
-                              type="number" 
-                              step="0.1"
-                              value={seg.icr} 
-                              onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value) || 0)}
-                              className="w-12 p-1.5 rounded-lg text-center font-bold text-xs bg-white border border-transparent focus:border-primary outline-none shadow-sm"
-                            />
-                          </td>
+                <div className="p-4 rounded-[2rem] bg-appBg/30 border border-textMain/5 flex-1 flex flex-col overflow-hidden">
+                  <div className="w-full h-full overflow-y-auto no-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 bg-[#f8fafc] z-10">
+                        <tr className="border-b border-textMain/5">
+                          <th className="py-3 px-2 text-[9px] font-black uppercase text-textMuted">Orario</th>
+                          <th className="py-3 text-[9px] font-black uppercase text-textMuted text-center">ISF</th>
+                          <th className="py-3 text-[9px] font-black uppercase text-textMuted text-center">ICR</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-textMain/5">
+                        {tempSettings.insulinSegments.map((seg, idx) => (
+                          <tr key={idx} className="hover:bg-white/40 transition-colors">
+                            <td className="py-3 px-2">
+                              <div className="flex flex-col text-left">
+                                <span className="text-xs font-black text-primary leading-none">{seg.startTime}</span>
+                                <span className="text-[8px] font-bold text-textMuted uppercase truncate max-w-[60px]">{(t as any)[seg.labelKey]}</span>
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <div className="flex justify-center">
+                                <input 
+                                  type="number" 
+                                  step="0.1"
+                                  value={seg.isf} 
+                                  onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value) || 0)}
+                                  className="w-14 p-2 rounded-xl text-center font-bold text-sm bg-white border border-transparent focus:border-primary outline-none shadow-sm transition-all"
+                                />
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <div className="flex justify-center">
+                                <input 
+                                  type="number" 
+                                  step="0.1"
+                                  value={seg.icr} 
+                                  onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value) || 0)}
+                                  className="w-14 p-2 rounded-xl text-center font-bold text-sm bg-white border border-transparent focus:border-primary outline-none shadow-sm transition-all"
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
 
             <div className="flex gap-3 w-full shrink-0">
-              <button onClick={prevStep} className="p-5 bg-gray-100 text-gray-500 rounded-[1.8rem]"><ChevronLeft size={24} /></button>
-              <button onClick={nextStep} className="flex-1 py-5 bg-primary text-gray-900 font-black rounded-[1.8rem] text-lg shadow-xl flex items-center justify-center gap-2">Avanti <ArrowRight size={22} /></button>
+              <button onClick={prevStep} className="p-5 bg-gray-100 text-gray-500 rounded-[1.8rem] transition-colors hover:bg-gray-200 active:scale-95"><ChevronLeft size={24} /></button>
+              <button onClick={nextStep} className="flex-1 py-5 bg-primary text-gray-900 font-black rounded-[1.8rem] text-lg shadow-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all">Avanti <ArrowRight size={22} /></button>
             </div>
           </div>
         );

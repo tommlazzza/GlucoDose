@@ -102,7 +102,7 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
       </div>
 
       {/* Scrollable Part */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-24">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-32">
         <div className="flex flex-col gap-3">
           {sortedFoods.map((food) => (
             <div key={food.id} className={`p-4 rounded-[1.8rem] shadow-sm flex justify-between items-center border transition-all ${isDark ? 'bg-gray-800 border-white/5 hover:border-primary/40' : 'bg-white border-transparent hover:border-secondary/50'}`}>

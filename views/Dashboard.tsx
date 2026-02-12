@@ -122,8 +122,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ settings, foods, history, 
     });
   };
 
+  // Condition to check if calculation is allowed (glucose must be entered)
+  const isCalculationDisabled = !glucose || glucose.trim() === '';
+
   return (
-    <div className="flex flex-col h-full overflow-y-auto no-scrollbar p-6 pb-24 relative">
+    <div className="flex flex-col h-full overflow-y-auto no-scrollbar p-6 pb-48 relative">
       <header className="flex justify-between items-center pt-2 mb-6">
         <div>
           <h1 className={`text-2xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-textMain'}`}>{getGreeting()},</h1>
@@ -170,7 +173,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ settings, foods, history, 
       </div>
 
       <div className="fixed bottom-24 left-0 right-0 px-6 max-w-md mx-auto z-40">
-        <button onClick={handleCalculateClick} disabled={totalCarbs === 0 && !glucose} className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all transform active:scale-[0.97] ${totalCarbs === 0 && !glucose ? (isDark ? 'bg-gray-800 text-gray-600' : 'bg-gray-300 text-gray-500') : 'bg-primary text-gray-900 shadow-primary/30'}`}>
+        <button 
+          onClick={handleCalculateClick} 
+          disabled={isCalculationDisabled} 
+          className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all transform active:scale-[0.97] ${isCalculationDisabled ? (isDark ? 'bg-gray-800 text-gray-600 cursor-not-allowed opacity-50' : 'bg-gray-300 text-gray-500 cursor-not-allowed') : 'bg-primary text-gray-900 shadow-primary/30'}`}
+        >
           <Calculator size={22} strokeWidth={3} /> {t.calculate.toUpperCase()}
         </button>
       </div>
