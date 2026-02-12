@@ -1,12 +1,21 @@
 
-export interface UserSettings {
-  userName: string;
+export interface InsulinSegment {
+  startTime: string; // HH:mm
+  labelKey: string;
   isf: number;
   icr: number;
+}
+
+export interface UserSettings {
+  userName: string;
+  isf: number; // Fallback se variabile è disattivato
+  icr: number; // Fallback se variabile è disattivato
   targetBg: number;
   doseStep: 0.5 | 1.0;
   language: 'it' | 'en';
   theme: 'light' | 'dark';
+  variableInsulinEnabled: boolean;
+  insulinSegments: InsulinSegment[];
 }
 
 export interface FoodItem {

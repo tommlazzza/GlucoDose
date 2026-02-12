@@ -16,20 +16,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate
   const isDark = settings.theme === 'dark';
 
   return (
-    <div className={`relative min-h-screen font-sans overflow-hidden selection:bg-primary transition-colors duration-500 ${isDark ? 'bg-[#0f172a] text-white' : 'bg-appBg text-textMain'}`}>
+    <div className={`relative min-h-screen font-sans overflow-hidden selection:bg-primary transition-colors duration-200 ${isDark ? 'bg-[#0f172a] text-white' : 'bg-appBg text-textMain'}`}>
       
       {/* Organic Background Blobs */}
       <div className={`absolute top-[-10%] right-[-20%] w-96 h-96 rounded-full blur-3xl mix-blend-multiply animate-blob opacity-70 pointer-events-none ${isDark ? 'bg-primary/10' : 'bg-primary/20'}`} />
       <div className={`absolute top-[20%] left-[-10%] w-72 h-72 rounded-full blur-3xl mix-blend-multiply animate-blob animation-delay-2000 opacity-60 pointer-events-none ${isDark ? 'bg-secondary/10' : 'bg-secondary/30'}`} />
 
       {/* Main Content Area */}
-      <main className={`relative z-10 h-screen flex flex-col pb-20 max-w-md mx-auto backdrop-blur-sm shadow-2xl sm:rounded-[3rem] sm:my-8 sm:h-[calc(100vh-4rem)] sm:border transition-all duration-500 ${isDark ? 'bg-gray-900/40 border-white/10' : 'bg-white/30 border-white/50'}`}>
-        <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+      <main className={`relative z-10 h-screen flex flex-col max-w-md mx-auto backdrop-blur-sm shadow-2xl sm:rounded-[3rem] sm:my-8 sm:h-[calc(100vh-4rem)] sm:border transition-all duration-200 ${isDark ? 'bg-gray-900/40 border-white/10' : 'bg-white/30 border-white/50'}`}>
+        <div className="flex-1 overflow-hidden">
           {children}
         </div>
 
         {/* Bottom Navigation */}
-        <nav className={`no-print absolute bottom-0 left-0 right-0 px-6 py-2 rounded-t-[2rem] shadow-lg grid grid-cols-3 gap-2 z-50 h-20 items-center transition-colors duration-500 ${isDark ? 'bg-gray-800/95 border-t border-white/5' : 'bg-white/95'}`}>
+        <nav className={`no-print px-6 py-2 rounded-t-[2rem] shadow-lg grid grid-cols-3 gap-2 z-50 h-20 items-center transition-all duration-200 ${isDark ? 'bg-gray-800 border-t border-white/5' : 'bg-white/95'}`}>
           <NavButton 
             active={activeView === 'dashboard'} 
             onClick={() => onNavigate('dashboard')} 
@@ -67,14 +67,14 @@ const NavButton: React.FC<{
   return (
     <button 
       onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-1.5 h-full transition-all duration-300 w-full rounded-2xl ${active ? (isDark ? 'text-white' : 'text-textMain') : 'text-textMuted'}`}
+      className={`flex flex-col items-center justify-center gap-1.5 h-full transition-all w-full rounded-2xl ${active ? (isDark ? 'text-primary' : 'text-textMain') : 'text-textMuted'}`}
     >
-      <div className={`p-1.5 rounded-xl transition-all duration-300 ${active ? 'bg-secondary -translate-y-1 shadow-sm' : 'bg-transparent'}`}>
-        <div className={active ? 'text-gray-900' : ''}>
+      <div className={`p-1.5 rounded-xl transition-all ${active ? (isDark ? 'bg-primary/20 -translate-y-1 shadow-sm' : 'bg-secondary -translate-y-1 shadow-sm') : 'bg-transparent'}`}>
+        <div className={active && !isDark ? 'text-gray-900' : ''}>
           {icon}
         </div>
       </div>
-      <span className={`text-[10px] font-bold transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-70'}`}>{label}</span>
+      <span className={`text-[10px] font-bold transition-opacity ${active ? 'opacity-100' : 'opacity-70'}`}>{label}</span>
     </button>
   );
 };
