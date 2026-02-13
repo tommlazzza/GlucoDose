@@ -127,6 +127,6 @@ Per eseguire l'app su un simulatore o su un dispositivo fisico (iPhone/iPad):
 
 ---
 
-## Licenza
+## 📄 Licenza
 
-Questo progetto è distribuito sotto licenza **MIT**. Vedi il file `LICENSE` per i dettagli completi.
+Copyright © 2026 Tommaso Lazzarin. Tutti i diritti riservati.
