@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Nasconde le barre ma mantiene lo scorrimento */
+.no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+/* Forza lo scorrimento nativo su iOS */
+.scrolling-touch {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Blocca il rimbalzo generale dell'app, lasciando solo quello delle liste */
+body {
+    margin: 0;
+    background-color: #ECF4E8;
+    overflow: hidden;
+    /* Importante: blocca lo scroll del body */
+    width: 100vw;
+    height: 100vh;
+    overscroll-behavior-y: none;
+}

@@ -1,31 +1,23 @@
+export type ViewState = 'dashboard' | 'food' | 'history' | 'settings';
 
 export interface InsulinSegment {
-  startTime: string; // HH:mm
-  labelKey: string;
+  startTime: string;
+  endTime?: string;
   isf: number;
   icr: number;
+  labelKey: string;
 }
 
 export interface UserSettings {
   userName: string;
-  isf: number; // Fallback se variabile è disattivato
-  icr: number; // Fallback se variabile è disattivato
   targetBg: number;
-  doseStep: 0.5 | 1.0;
-  language: 'it' | 'en';
-  theme: 'light' | 'dark';
+  isf: number;
+  icr: number;
+  doseStep: number;
   variableInsulinEnabled: boolean;
   insulinSegments: InsulinSegment[];
-}
-
-export interface FoodItem {
-  id: string;
-  name: string;
-  carbsPerServing: number;
-  servingUnit: string;
-  category: 'fruit' | 'vegetable' | 'grain' | 'dairy' | 'protein' | 'sweet';
-  color: string;
-  lastUsed?: number;
+  theme: 'light' | 'dark';
+  language: 'it' | 'en';
 }
 
 export interface HistoryEntry {
@@ -34,8 +26,15 @@ export interface HistoryEntry {
   glucose: number;
   carbs: number;
   units: number;
+  recommendedUnits?: number; // <--- NUOVO CAMPO
   type: 'bolus' | 'basal';
   mealType: string;
 }
 
-export type ViewState = 'dashboard' | 'food' | 'history' | 'settings';
+export interface FoodItem {
+  id: string;
+  name: string;
+  carbsPerServing: number; // Carbo per 100g
+  category: string;
+  lastUsed: number;
+}
