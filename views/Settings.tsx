@@ -31,6 +31,7 @@ const InputField = ({ label, value, onChange, isDark, type = "number", placehold
     <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{label}</label>
     <input
       type={type}
+      inputMode={type === "number" ? "decimal" : "text"}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -241,6 +242,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
                             disabled={isFirst}
                             onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)}
                             className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
+                            style={{ colorScheme: isDark ? 'dark' : 'light' }}
                           />
                           <span className="text-textMuted text-xs font-bold">➔</span>
                           <input
@@ -249,6 +251,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
                             disabled={isLast}
                             onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)}
                             className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
+                            style={{ colorScheme: isDark ? 'dark' : 'light' }}
                           />
                         </div>
 
@@ -268,19 +271,37 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
                         <div className="flex-1">
                           <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">TARGET</label>
                           <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-                            <input type="number" value={seg.target} onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))} className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={seg.target}
+                              onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))}
+                              className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
+                            />
                           </div>
                         </div>
                         <div className="flex-1">
                           <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ISF</label>
                           <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-                            <input type="number" value={seg.isf} onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))} className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={seg.isf}
+                              onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))}
+                              className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
+                            />
                           </div>
                         </div>
                         <div className="flex-1">
                           <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ICR</label>
                           <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-                            <input type="number" value={seg.icr} onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))} className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={seg.icr}
+                              onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))}
+                              className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
+                            />
                           </div>
                         </div>
                       </div>

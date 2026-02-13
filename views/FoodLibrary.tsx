@@ -16,7 +16,7 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isAdding, setIsAdding] = useState(false);
 
-  const [newFood, setNewFood] = useState({ name: '', carbs: '', unit: '', category: 'grain' });
+  const [newFood, setNewFood] = useState({ name: '', carbs: '', unit: '100', unitType: 'g', category: 'grain' });
   const [sortBy, setSortBy] = useState<'alphabetical' | 'recent'>('recent');
 
   const CATEGORIES_LIST = [
@@ -44,15 +44,16 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
   const handleCloseModal = () => {
     setIsAdding(false);
     // Reset completo dei campi ai valori di default
-    setNewFood({ name: '', carbs: '', unit: '', category: 'grain' });
+    setNewFood({ name: '', carbs: '', unit: '100', unitType: 'g', category: 'grain' });
   };
 
   const handleSaveFood = () => {
     if (newFood.name && newFood.carbs) {
+      const servingUnit = newFood.unit && newFood.unitType ? `${newFood.unit}${newFood.unitType}` : '100g';
       onAddFood({
         name: newFood.name,
         carbsPerServing: parseFloat(newFood.carbs),
-        servingUnit: newFood.unit || '100g',
+        servingUnit: servingUnit,
         category: newFood.category as any,
         lastUsed: Date.now()
       });
@@ -184,13 +185,29 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">Unità (opz.)</label>
+                  <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">Quantità</label>
                   <input
+                    type="number"
+                    inputMode="decimal"
                     className={`w-full border-2 border-transparent rounded-2xl p-4 font-bold outline-none focus:border-primary transition-all ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-50 text-textMain'}`}
                     value={newFood.unit}
                     onChange={e => setNewFood({ ...newFood, unit: e.target.value })}
-                    placeholder="100ml"
+                    placeholder="100"
                   />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">Unità di Misura</label>
+                <div className="relative">
+                  <select
+                    className={`w-full border-2 border-transparent rounded-2xl p-4 font-bold outline-none focus:border-primary transition-all appearance-none ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-50 text-textMain'}`}
+                    value={newFood.unitType || 'g'}
+                    onChange={e => setNewFood({ ...newFood, unitType: e.target.value })}
+                  >
+                    <option value="g">grammi (g)</option>
+                    <option value="ml">millilitri (ml)</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">▼</div>
                 </div>
               </div>
               <div>

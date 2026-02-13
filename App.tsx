@@ -286,6 +286,7 @@ export default function App() {
                     <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Target Glicemico (mg/dL)</label>
                     <input
                       type="number"
+                      inputMode="decimal"
                       value={tempSettings.targetBg}
                       onChange={(e) => setTempSettings({ ...tempSettings, targetBg: parseFloat(e.target.value) || 0 })}
                       className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
@@ -295,6 +296,7 @@ export default function App() {
                     <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Sensibilità (ISF)</label>
                     <input
                       type="number"
+                      inputMode="decimal"
                       value={tempSettings.isf}
                       onChange={(e) => setTempSettings({ ...tempSettings, isf: parseFloat(e.target.value) || 0 })}
                       className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
@@ -304,6 +306,7 @@ export default function App() {
                     <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Rapporto (ICR)</label>
                     <input
                       type="number"
+                      inputMode="decimal"
                       value={tempSettings.icr}
                       onChange={(e) => setTempSettings({ ...tempSettings, icr: parseFloat(e.target.value) || 0 })}
                       className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
@@ -332,6 +335,7 @@ export default function App() {
                               disabled={isFirst}
                               onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)}
                               className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                              style={{ colorScheme: 'light' }}
                             />
                             <span className="text-textMuted text-xs font-bold">➔</span>
                             {/* FINE */}
@@ -342,6 +346,7 @@ export default function App() {
                               disabled={isLast}
                               onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)}
                               className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                              style={{ colorScheme: 'light' }}
                             />
                           </div>
 
@@ -362,19 +367,37 @@ export default function App() {
                           <div className="flex-1">
                             <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">TARGET</label>
                             <div className="bg-white rounded-xl p-2 shadow-sm">
-                              <input type="number" value={seg.target} onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))} className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain" />
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                value={seg.target}
+                                onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))}
+                                className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain"
+                              />
                             </div>
                           </div>
                           <div className="flex-1">
                             <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ISF</label>
                             <div className="bg-white rounded-xl p-2 shadow-sm">
-                              <input type="number" value={seg.isf} onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))} className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain" />
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                value={seg.isf}
+                                onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))}
+                                className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain"
+                              />
                             </div>
                           </div>
                           <div className="flex-1">
                             <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ICR</label>
                             <div className="bg-white rounded-xl p-2 shadow-sm">
-                              <input type="number" value={seg.icr} onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))} className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain" />
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                value={seg.icr}
+                                onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))}
+                                className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain"
+                              />
                             </div>
                           </div>
                         </div>
@@ -484,7 +507,7 @@ export default function App() {
             history={history}
             onLogDose={handleLogDose}
             onNavigateSettings={() => setActiveView('settings')}
-            onNavigateHistory={() => setActiveView('history')} // ← AGGIUNGI QUESTA PROP
+            onNavigateHistory={() => setActiveView('history')}
             glucose={dashboardGlucose}
             setGlucose={setDashboardGlucose}
             selectedFoods={dashboardFoods}
@@ -505,7 +528,7 @@ export default function App() {
             history={history}
             onLogDose={handleLogDose}
             onNavigateSettings={() => setActiveView('settings')}
-            onNavigateHistory={() => setActiveView('history')} // ← AGGIUNGI ANCHE QUI
+            onNavigateHistory={() => setActiveView('history')}
             glucose={dashboardGlucose}
             setGlucose={setDashboardGlucose}
             selectedFoods={dashboardFoods}
