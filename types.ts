@@ -2,19 +2,21 @@ export type ViewState = 'dashboard' | 'food' | 'history' | 'settings';
 
 export interface InsulinSegment {
   startTime: string;
-  endTime?: string;
+  endTime: string;
   isf: number;
   icr: number;
+  // Il target nei segmenti è opzionale. Se non c'è, si usa quello globale.
+  target: number;
   labelKey: string;
 }
 
 export interface UserSettings {
   userName: string;
-  targetBg: number;
+  targetBg: number; // Target Glicemico Globale (Principale)
   isf: number;
   icr: number;
   doseStep: number;
-  variableInsulinEnabled: boolean;
+  variableInsulinEnabled: boolean; // Attiva le fasce orarie per ISF e ICR
   insulinSegments: InsulinSegment[];
   theme: 'light' | 'dark';
   language: 'it' | 'en';
@@ -26,7 +28,7 @@ export interface HistoryEntry {
   glucose: number;
   carbs: number;
   units: number;
-  recommendedUnits?: number; // <--- NUOVO CAMPO
+  recommendedUnits?: number;
   type: 'bolus' | 'basal';
   mealType: string;
 }
@@ -38,3 +40,5 @@ export interface FoodItem {
   category: string;
   lastUsed: number;
 }
+
+export type SelectedFoodItem = FoodItem & { uniqueId: string; weight: number };

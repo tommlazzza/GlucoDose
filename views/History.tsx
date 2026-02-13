@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { HistoryEntry, UserSettings } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { AreaChart, Area, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, ReferenceArea } from 'recharts';
-import { FileDown, Activity, Clock, Syringe, Info, ArrowUp, ArrowDown } from 'lucide-react';
+import { Activity, Clock, Syringe, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface HistoryProps {
   history: HistoryEntry[];
@@ -11,10 +11,10 @@ interface HistoryProps {
 
 const INSULIN_DURATION_MINUTES = 240;
 const AGP_COLORS = {
-  LOW: '#ef4444',
-  TARGET: '#10b981',
-  YELLOW: '#facc15',
-  ORANGE: '#f97316',
+  LOW: '#ef4444',     // Rosso
+  TARGET: '#10b981',  // Verde
+  YELLOW: '#facc15',  // Giallo
+  ORANGE: '#f97316',  // Arancio
   BG_TARGET_AREA: '#abe7b2',
   TARGET_BG_OPACITY: 0.15,
   IOB_CURVE: '#93BFC7'
@@ -24,12 +24,15 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
   const t = TRANSLATIONS[settings.language];
   const isDark = settings.theme === 'dark';
   const [now, setNow] = useState(new Date());
+  const [activeTooltipIOB, setActiveTooltipIOB] = useState(false);
+  const [activeTooltipGlucose, setActiveTooltipGlucose] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
 
+  // --- CALCOLO IOB (Insulina Attiva) ---
   const iobData = useMemo(() => {
     const data = [];
     for (let offset = -60; offset <= INSULIN_DURATION_MINUTES; offset += 15) {
@@ -57,15 +60,20 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
 
   const currentIOB = iobData.find(d => !d.isFuture && Math.abs(now.getTime() - d.time) < 15 * 60000)?.value || 0;
 
+  // --- DATI GRAFICO GIORNALIERO ---
   const myDayData = useMemo(() => {
     const today = new Date(now); today.setHours(0, 0, 0, 0);
     const startOfDay = today.getTime();
     const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+
+    // Ordiniamo per orario per evitare linee che tornano indietro
+    // Filtriamo solo valori > 0
     return history
       .filter(e => {
         const t = new Date(e.timestamp).getTime();
         return t >= startOfDay && t <= endOfDay && e.glucose > 0;
       })
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .map(e => ({
         time: new Date(e.timestamp).getTime(),
         displayTime: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -73,15 +81,34 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
       }));
   }, [history, now]);
 
+  // --- COMPONENTE PALLINO PERSONALIZZATO ---
   const CustomizedDot = (props: any) => {
-    const { cx, cy, payload } = props;
-    if (!payload || typeof payload.glucose === 'undefined') return null;
+    const { cx, cy, payload, r } = props;
+
+    // Se non c'è dato o posizione, non renderizzare
+    if (!cx || !cy || !payload || typeof payload.glucose === 'undefined') return null;
+
     const val = payload.glucose;
-    let color = AGP_COLORS.TARGET;
-    if (val < 80 || val > 260) color = AGP_COLORS.LOW;
-    else if (val > 170 && val <= 210) color = AGP_COLORS.YELLOW;
-    else if (val > 210 && val <= 260) color = AGP_COLORS.ORANGE;
-    return <circle cx={cx} cy={cy} r={6} fill={color} stroke={isDark ? '#1e293b' : '#ffffff'} strokeWidth={2} className="drop-shadow-sm" />;
+    let color = AGP_COLORS.TARGET; // Verde default
+
+    if (val < 70) color = AGP_COLORS.LOW;       // Rosso
+    else if (val > 250) color = AGP_COLORS.ORANGE; // Arancio
+    else if (val > 180) color = AGP_COLORS.YELLOW; // Giallo
+
+    // Usa il raggio passato (se è activeDot sarà più grande)
+    const radius = r || 5;
+
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill={color}
+        stroke={isDark ? '#1e293b' : '#ffffff'}
+        strokeWidth={2}
+        className="drop-shadow-sm transition-all"
+      />
+    );
   };
 
   const formatDate = (date: Date) => {
@@ -91,15 +118,11 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
   return (
     <div className="h-full overflow-y-auto no-scrollbar">
       <div className="p-6 pb-32 flex flex-col gap-8">
-        <header className="pt-2 flex justify-between items-center no-print">
+        <header className="pt-2 flex justify-between items-center">
           <div>
             <h2 className={`text-2xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-textMain'}`}>{t.monitoring}</h2>
-            <p className="text-textMuted text-xs font-bold uppercase tracking-widest">Dati AGP</p>
+            <p className="text-textMuted text-xs font-bold uppercase tracking-widest">Dati Giornalieri</p>
           </div>
-          <button onClick={() => window.print()} className={`p-3 rounded-2xl shadow-sm transition-all flex items-center gap-2 border ${isDark ? 'bg-gray-800 border-white/5 text-white' : 'bg-white border-gray-100 text-textMain'}`}>
-            <FileDown size={18} />
-            <span className="text-xs font-bold">{t.export}</span>
-          </button>
         </header>
 
         {/* GRAFICO IOB */}
@@ -120,14 +143,43 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
               <span className={`text-[9px] font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
           </div>
-          <div className="h-32 -mx-2">
+
+          <div className="h-32 w-full touch-none"
+            onTouchStart={() => setActiveTooltipIOB(true)}
+            onTouchEnd={() => setActiveTooltipIOB(false)}
+            onMouseLeave={() => setActiveTooltipIOB(false)}
+          >
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={iobData}>
+              <AreaChart data={iobData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorIOB" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={AGP_COLORS.IOB_CURVE} stopOpacity={0.4} />
+                    <stop offset="95%" stopColor={AGP_COLORS.IOB_CURVE} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} hide />
                 <YAxis hide domain={[0, 'auto']} />
-                <Tooltip content={({ active, payload }) => active && payload && payload.length ? (<div className={`px-3 py-2 rounded-xl text-[10px] shadow-xl ${isDark ? 'bg-gray-700 text-white' : 'bg-textMain text-white'}`}><p className="font-bold opacity-60">{payload[0].payload.displayTime}</p><p className="text-sm font-extrabold">{payload[0].payload.value} U</p></div>) : null} />
-                <ReferenceLine x={now.getTime()} stroke={isDark ? '#6B7280' : '#9CA3AF'} strokeDasharray="4 4" strokeWidth={2} />
-                <Area type="monotone" dataKey="value" stroke={AGP_COLORS.IOB_CURVE} strokeWidth={2.5} fill={AGP_COLORS.IOB_CURVE} fillOpacity={0.2} animationDuration={1000} />
+                <Tooltip
+                  active={activeTooltipIOB}
+                  cursor={activeTooltipIOB ? { stroke: isDark ? '#ffffff40' : '#00000040', strokeWidth: 2, strokeDasharray: '5 5' } : false}
+                  content={({ active, payload }) => active && activeTooltipIOB && payload && payload.length ? (
+                    <div className={`px-3 py-2 rounded-xl text-[10px] shadow-xl border ${isDark ? 'bg-gray-800 border-white/10 text-white' : 'bg-white border-gray-100 text-textMain'}`}>
+                      <p className="font-bold opacity-60 mb-0.5">{payload[0].payload.displayTime}</p>
+                      <p className="text-sm font-extrabold text-primary">{payload[0].payload.value} U</p>
+                    </div>
+                  ) : null}
+                />
+                <ReferenceLine x={now.getTime()} stroke={isDark ? '#6B7280' : '#9CA3AF'} strokeDasharray="3 3" />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={AGP_COLORS.IOB_CURVE}
+                  strokeWidth={3}
+                  fill="url(#colorIOB)"
+                  animationDuration={1000}
+                  dot={false}
+                  activeDot={activeTooltipIOB ? { r: 6, fill: AGP_COLORS.IOB_CURVE, stroke: isDark ? '#1e293b' : '#ffffff', strokeWidth: 2 } : false}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -144,18 +196,63 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
               <h4 className={`text-xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-textMain'}`}>{t.myDay}</h4>
             </div>
           </div>
-          <div className="h-64 -mx-2 relative">
+
+          <div className="h-64 w-full touch-none"
+            onTouchStart={() => setActiveTooltipGlucose(true)}
+            onTouchEnd={() => setActiveTooltipGlucose(false)}
+            onMouseLeave={() => setActiveTooltipGlucose(false)}
+          >
             {myDayData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={myDayData}>
+                <LineChart data={myDayData} margin={{ top: 20, right: 20, left: -20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#f3f4f6'} />
-                  <XAxis dataKey="time" type="number" scale="time" domain={[new Date(now).setHours(0, 0, 0, 0), new Date(now).setHours(23, 59, 59, 999)]} tickFormatter={(unix) => new Date(unix).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} tick={{ fontSize: 9, fill: '#9CA3AF', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[40, 300]} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                  <XAxis
+                    dataKey="time"
+                    type="number"
+                    scale="time"
+                    domain={[new Date(now).setHours(0, 0, 0, 0), new Date(now).setHours(23, 59, 59, 999)]}
+                    tickFormatter={(unix) => new Date(unix).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    tick={{ fontSize: 9, fill: '#9CA3AF', fontWeight: 'bold' }}
+                    axisLine={false}
+                    tickLine={false}
+                    minTickGap={30}
+                  />
+                  <YAxis
+                    type="number"
+                    domain={[40, 400]}
+                    allowDataOverflow={true}
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={45}
+                  />
                   {/* @ts-ignore */}
                   <ReferenceArea y1={70} y2={180} fill={AGP_COLORS.BG_TARGET_AREA} fillOpacity={AGP_COLORS.TARGET_BG_OPACITY} />
                   <ReferenceLine y={settings.targetBg} stroke={isDark ? '#475569' : '#e2e8f0'} strokeWidth={1} strokeDasharray="3 3" />
-                  <Line type="monotone" dataKey="glucose" stroke="none" dot={<CustomizedDot />} activeDot={{ r: 9, stroke: isDark ? '#fff' : '#000', strokeWidth: 2 }} animationDuration={1500} />
-                  <Tooltip content={({ active, payload }) => active && payload && payload.length ? (<div className={`px-4 py-3 rounded-2xl shadow-2xl border ${isDark ? 'bg-gray-800 border-white/10 text-white' : 'bg-white border-gray-100 text-textMain'}`}><p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">{payload[0].payload.displayTime}</p><p className="text-xl font-black">{payload[0].payload.glucose} <span className="text-xs font-bold text-textMuted">mg/dL</span></p></div>) : null} />
+
+                  <Line
+                    type="monotone"
+                    dataKey="glucose"
+                    stroke={isDark ? '#cbd5e1' : '#94a3b8'}
+                    strokeWidth={1.5}
+                    dot={<CustomizedDot />}
+                    activeDot={activeTooltipGlucose ? <CustomizedDot r={8} /> : <CustomizedDot />}
+                    animationDuration={1500}
+                    isAnimationActive={true}
+                  />
+                  <Tooltip
+                    active={activeTooltipGlucose}
+                    cursor={{ stroke: isDark ? '#ffffff20' : '#00000020', strokeWidth: 1 }}
+                    content={({ active, payload }) => active && activeTooltipGlucose && payload && payload.length ? (
+                      <div className={`px-4 py-3 rounded-2xl shadow-xl border ${isDark ? 'bg-gray-800 border-white/10 text-white' : 'bg-white border-gray-100 text-textMain'}`}>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">{payload[0].payload.displayTime}</p>
+                        <p className="text-xl font-black flex items-baseline gap-1">
+                          {payload[0].payload.glucose}
+                          <span className="text-[10px] font-bold text-textMuted">mg/dL</span>
+                        </p>
+                      </div>
+                    ) : null}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -168,7 +265,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           </div>
         </section>
 
-        {/* --- STORICO DETTAGLIATO (NUOVO) --- */}
+        {/* --- STORICO DETTAGLIATO --- */}
         <section>
           <h3 className={`text-lg font-extrabold mb-4 px-2 ${isDark ? 'text-white' : 'text-textMain'}`}>Diario Boli</h3>
           <div className="flex flex-col gap-3">
@@ -204,14 +301,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             ))}
           </div>
         </section>
-
-        <div className={`no-print p-4 rounded-3xl border border-dashed mx-2 flex gap-3 items-start ${isDark ? 'bg-gray-800/30 border-primary/20' : 'bg-appBg/50 border-primary/30'}`}>
-          <Info size={16} className="text-primary shrink-0 mt-0.5" />
-          <p className={`text-[10px] leading-relaxed font-medium ${isDark ? 'text-gray-400' : 'text-textMuted'}`}>
-            I pallini cambiano colore in base al livello: Rosso (critico), Giallo/Arancio (alto), Verde (in target).
-            La linea tratteggiata indica il tuo target glicemico ideale ({settings.targetBg} mg/dL).
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -2,10 +2,10 @@ import { FoodItem, UserSettings, InsulinSegment } from './types';
 
 // FASCE DI DEFAULT (Mattina, Pomeriggio, Sera, Notte)
 export const DEFAULT_INSULIN_SEGMENTS: InsulinSegment[] = [
-  { startTime: '06:00', endTime: '12:00', labelKey: 'morning', isf: 50, icr: 10 },
-  { startTime: '12:00', endTime: '18:00', labelKey: 'afternoon', isf: 50, icr: 10 },
-  { startTime: '18:00', endTime: '23:00', labelKey: 'evening', isf: 50, icr: 10 },
-  { startTime: '23:00', endTime: '06:00', labelKey: 'night', isf: 50, icr: 10 },
+  { startTime: '06:00', endTime: '12:00', labelKey: 'morning', isf: 50, icr: 10, target: 100 },
+  { startTime: '12:00', endTime: '18:00', labelKey: 'afternoon', isf: 50, icr: 10, target: 100 },
+  { startTime: '18:00', endTime: '23:00', labelKey: 'evening', isf: 50, icr: 10, target: 100 },
+  { startTime: '23:00', endTime: '06:00', labelKey: 'night', isf: 50, icr: 10, target: 100 },
 ];
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -27,6 +27,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   dairy: '🥛',
   protein: '🍗',
   sweet: '🍩',
+  drink: '🥤', // NUOVA ICONA
   all: '🥗'
 };
 
@@ -78,6 +79,7 @@ export const TRANSLATIONS = {
       dairy: 'Latticini',
       protein: 'Proteine',
       sweet: 'Dolci',
+      drink: 'Bevande', // NUOVA CATEGORIA
       all: 'Tutti',
       morning: 'Buongiorno',
       afternoon: 'Buon pomeriggio',
@@ -121,16 +123,16 @@ export const MOCK_FOODS: FoodItem[] = [
   { id: '28', name: 'Riso', carbsPerServing: 80, category: 'grain', lastUsed: Date.now() },
   { id: '29', name: 'Tortellini', carbsPerServing: 50, category: 'grain', lastUsed: Date.now() },
 
-  // BEVANDE (Category 2) -> sweet
-  { id: '30', name: 'Aranciata', carbsPerServing: 10, category: 'sweet', lastUsed: Date.now() },
-  { id: '31', name: 'Birra', carbsPerServing: 3.5, category: 'sweet', lastUsed: Date.now() },
-  { id: '32', name: 'Cola', carbsPerServing: 10, category: 'sweet', lastUsed: Date.now() },
-  { id: '33', name: 'Liquori da dessert', carbsPerServing: 31, category: 'sweet', lastUsed: Date.now() },
-  { id: '34', name: 'Spumante', carbsPerServing: 0.5, category: 'sweet', lastUsed: Date.now() },
-  { id: '35', name: 'Vermouth dolce', carbsPerServing: 14, category: 'sweet', lastUsed: Date.now() },
-  { id: '36', name: 'Vermouth secco', carbsPerServing: 4, category: 'sweet', lastUsed: Date.now() },
+  // BEVANDE (Category 2) -> ORA 'drink'
+  { id: '30', name: 'Aranciata', carbsPerServing: 10, category: 'drink', lastUsed: Date.now() },
+  { id: '31', name: 'Birra', carbsPerServing: 3.5, category: 'drink', lastUsed: Date.now() },
+  { id: '32', name: 'Cola', carbsPerServing: 10, category: 'drink', lastUsed: Date.now() },
+  { id: '33', name: 'Liquori da dessert', carbsPerServing: 31, category: 'drink', lastUsed: Date.now() },
+  { id: '34', name: 'Spumante', carbsPerServing: 0.5, category: 'drink', lastUsed: Date.now() },
+  { id: '35', name: 'Vermouth dolce', carbsPerServing: 14, category: 'drink', lastUsed: Date.now() },
+  { id: '36', name: 'Vermouth secco', carbsPerServing: 4, category: 'drink', lastUsed: Date.now() },
 
-  // LEGUMI (Category 3) -> vegetable (o grain, ma usiamo vegetable per distinzione)
+  // LEGUMI (Category 3)
   { id: '37', name: 'Ceci in scatola', carbsPerServing: 14, category: 'vegetable', lastUsed: Date.now() },
   { id: '38', name: 'Ceci secchi', carbsPerServing: 47, category: 'vegetable', lastUsed: Date.now() },
   { id: '39', name: 'Ceci secchi bolliti', carbsPerServing: 19, category: 'vegetable', lastUsed: Date.now() },
@@ -148,13 +150,13 @@ export const MOCK_FOODS: FoodItem[] = [
   { id: '51', name: 'Piselli in scatola', carbsPerServing: 11, category: 'vegetable', lastUsed: Date.now() },
   { id: '52', name: 'Piselli secchi', carbsPerServing: 50, category: 'vegetable', lastUsed: Date.now() },
 
-  // LATTICINI (Category 4) -> dairy
+  // LATTICINI (Category 4)
   { id: '53', name: 'Latte', carbsPerServing: 5, category: 'dairy', lastUsed: Date.now() },
   { id: '54', name: 'Yogurt intero', carbsPerServing: 4, category: 'dairy', lastUsed: Date.now() },
   { id: '55', name: 'Yogurt magro', carbsPerServing: 4, category: 'dairy', lastUsed: Date.now() },
   { id: '56', name: 'Yogurt alla frutta', carbsPerServing: 15, category: 'dairy', lastUsed: Date.now() },
 
-  // DOLCI (Category 5) -> sweet
+  // DOLCI (Category 5)
   { id: '57', name: 'Babà al rhum', carbsPerServing: 41, category: 'sweet', lastUsed: Date.now() },
   { id: '58', name: 'Cannoli alla crema', carbsPerServing: 42, category: 'sweet', lastUsed: Date.now() },
   { id: '59', name: 'Caramelle dure', carbsPerServing: 92, category: 'sweet', lastUsed: Date.now() },
@@ -174,7 +176,7 @@ export const MOCK_FOODS: FoodItem[] = [
   { id: '73', name: 'Miele', carbsPerServing: 80, category: 'sweet', lastUsed: Date.now() },
   { id: '74', name: 'Zucchero', carbsPerServing: 105, category: 'sweet', lastUsed: Date.now() },
 
-  // FRUTTA E VERDURA (Category 6) -> fruit, protein (noci), vegetable (carote)
+  // FRUTTA E VERDURA (Category 6)
   { id: '75', name: 'Albicocche', carbsPerServing: 7, category: 'fruit', lastUsed: Date.now() },
   { id: '76', name: 'Albicocche sciroppate', carbsPerServing: 16, category: 'fruit', lastUsed: Date.now() },
   { id: '77', name: 'Albicocche secche', carbsPerServing: 66, category: 'fruit', lastUsed: Date.now() },
@@ -203,7 +205,7 @@ export const MOCK_FOODS: FoodItem[] = [
   { id: '100', name: 'Pesche', carbsPerServing: 6, category: 'fruit', lastUsed: Date.now() },
   { id: '101', name: 'Pesche sciroppate', carbsPerServing: 14, category: 'fruit', lastUsed: Date.now() },
   { id: '102', name: 'Prugne', carbsPerServing: 10, category: 'fruit', lastUsed: Date.now() },
-  { id: '103', name: 'Spremuta d\'arancia', carbsPerServing: 8, category: 'fruit', lastUsed: Date.now() },
+  { id: '103', name: 'Spremuta d\'arancia', carbsPerServing: 8, category: 'drink', lastUsed: Date.now() }, // AGGIORNATO
   { id: '104', name: 'Uva', carbsPerServing: 16, category: 'fruit', lastUsed: Date.now() },
   { id: '105', name: 'Carote', carbsPerServing: 8, category: 'vegetable', lastUsed: Date.now() },
 ];

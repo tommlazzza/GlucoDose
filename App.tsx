@@ -4,7 +4,7 @@ import { Dashboard } from './views/Dashboard';
 import { FoodLibrary } from './views/FoodLibrary';
 import { HistoryView } from './views/History';
 import { Settings } from './views/Settings';
-import { UserSettings, ViewState, HistoryEntry, FoodItem, InsulinSegment } from './types';
+import { UserSettings, ViewState, HistoryEntry, FoodItem, InsulinSegment, SelectedFoodItem } from './types';
 import { DEFAULT_SETTINGS, MOCK_HISTORY, MOCK_FOODS } from './constants';
 import { User, Check, Target, Zap, ArrowRight, ChevronLeft, Clock, Plus, Trash2 } from 'lucide-react';
 import img_logo from './src/images/app_icon.png';
@@ -17,8 +17,35 @@ export default function App() {
     const saved = localStorage.getItem('gluco_settings');
     return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
   });
-  const [history, setHistory] = useState<HistoryEntry[]>(MOCK_HISTORY);
-  const [foods, setFoods] = useState<FoodItem[]>(MOCK_FOODS);
+
+  const [history, setHistory] = useState<HistoryEntry[]>(() => {
+    const saved = localStorage.getItem('gluco_history');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Converti le stringhe timestamp in oggetti Date
+      return parsed.map((entry: HistoryEntry) => ({
+        ...entry,
+        timestamp: new Date(entry.timestamp)
+      }));
+    }
+    return MOCK_HISTORY;
+  });
+
+  const [foods, setFoods] = useState<FoodItem[]>(() => {
+    const saved = localStorage.getItem('gluco_foods');
+    return saved ? JSON.parse(saved) : MOCK_FOODS;
+  });
+
+  // --- STATO CONDIVISO ---
+  const [dashboardGlucose, setDashboardGlucose] = useState<string>(() => {
+    const saved = localStorage.getItem('gluco_dashboard_glucose');
+    return saved || '';
+  });
+
+  const [dashboardFoods, setDashboardFoods] = useState<SelectedFoodItem[]>(() => {
+    const saved = localStorage.getItem('gluco_dashboard_foods');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [showOnboarding, setShowOnboarding] = useState(settings.userName === 'Nome');
   const [onboardingStep, setOnboardingStep] = useState(1);
@@ -46,6 +73,22 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('gluco_settings', JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    localStorage.setItem('gluco_history', JSON.stringify(history));
+  }, [history]);
+
+  useEffect(() => {
+    localStorage.setItem('gluco_foods', JSON.stringify(foods));
+  }, [foods]);
+
+  useEffect(() => {
+    localStorage.setItem('gluco_dashboard_glucose', dashboardGlucose);
+  }, [dashboardGlucose]);
+
+  useEffect(() => {
+    localStorage.setItem('gluco_dashboard_foods', JSON.stringify(dashboardFoods));
+  }, [dashboardFoods]);
 
   const handleLogDose = (units: number, glucose: number, carbs: number, type: 'bolus' | 'basal', recommendedUnits?: number) => {
     const newEntry: HistoryEntry = {
@@ -79,31 +122,100 @@ export default function App() {
     setShowOnboarding(false);
   };
 
-  const handleSegmentChange = (index: number, key: keyof InsulinSegment | 'endTime', value: any) => {
+  // --- LOGICA GESTIONE FASCE ORARIE (LINKED) PER ONBOARDING ---
+
+  const handleSegmentChange = (index: number, key: keyof InsulinSegment, value: any) => {
     const newSegments = [...tempSettings.insulinSegments];
+
+    // Aggiorno il valore richiesto
     newSegments[index] = { ...newSegments[index], [key]: value };
+
+    // LOGICA DI CONCATENAZIONE (Chain)
+    // 1. Se modifico FINE di N, aggiorno INIZIO di N+1
+    if (key === 'endTime' && index < newSegments.length - 1) {
+      newSegments[index + 1].startTime = value;
+    }
+
+    // 2. Se modifico INIZIO di N, aggiorno FINE di N-1
+    if (key === 'startTime' && index > 0) {
+      newSegments[index - 1].endTime = value;
+    }
+
     setTempSettings({ ...tempSettings, insulinSegments: newSegments });
   };
 
   const handleAddSegment = () => {
-    const newSegment: InsulinSegment & { endTime?: string } = {
-      startTime: "12:00",
-      endTime: "13:00",
-      isf: tempSettings.isf || 30,
-      icr: tempSettings.icr || 10,
+    const segments = [...tempSettings.insulinSegments];
+    const lastIndex = segments.length - 1;
+    const lastSegment = segments[lastIndex];
+
+    // LOGICA SPLIT: Prendi l'ultimo segmento e dividilo a metà
+    const [startH, startM] = lastSegment.startTime.split(':').map(Number);
+    // Assumiamo che l'ultimo finisca sempre virtualmente a fine giornata per il calcolo
+    const endH = 24;
+    const endM = 0;
+
+    const startTotalMinutes = startH * 60 + startM;
+    const endTotalMinutes = endH * 60 + endM;
+    const durationMinutes = endTotalMinutes - startTotalMinutes;
+
+    // Punto di metà
+    const splitMinutes = startTotalMinutes + Math.floor(durationMinutes / 2);
+    const splitH = Math.floor(splitMinutes / 60);
+    const splitM = splitMinutes % 60;
+
+    // Formattazione HH:MM con sicurezza (non oltre le 23)
+    let safeH = splitH >= 23 ? 23 : splitH;
+    if (safeH === startH) safeH = startH + 1; // Evita segmenti di 0 minuti
+    const newSplitTime = `${safeH.toString().padStart(2, '0')}:${splitM.toString().padStart(2, '0')}`;
+
+    // 1. Aggiorna la fine dell'attuale ultimo
+    segments[lastIndex].endTime = newSplitTime;
+
+    // 2. Crea il nuovo segmento che va dallo split fino a 23:59
+    const newSegment: InsulinSegment = {
+      startTime: newSplitTime,
+      endTime: "23:59",
+      isf: lastSegment.isf,
+      icr: lastSegment.icr,
+      target: lastSegment.target, // Copia il target
       labelKey: 'custom'
     };
-    const newSegments = [...tempSettings.insulinSegments, newSegment].sort((a, b) => {
-      const [ha, ma] = a.startTime.split(':').map(Number);
-      const [hb, mb] = b.startTime.split(':').map(Number);
-      return (ha * 60 + ma) - (hb * 60 + mb);
-    });
-    setTempSettings({ ...tempSettings, insulinSegments: newSegments });
+
+    segments.push(newSegment);
+    setTempSettings({ ...tempSettings, insulinSegments: segments });
   };
 
   const handleRemoveSegment = (index: number) => {
+    if (tempSettings.insulinSegments.length <= 1) return; // Non cancellare l'ultimo
+
     const newSegments = tempSettings.insulinSegments.filter((_, i) => i !== index);
+
+    // Ricollegare i buchi
+    if (index === 0) {
+      // Se ho tolto il primo, il nuovo primo parte da 00:00
+      newSegments[0].startTime = "00:00";
+    } else if (index === tempSettings.insulinSegments.length - 1) {
+      // Se ho tolto l'ultimo, il penultimo diventa ultimo e finisce a 23:59
+      newSegments[newSegments.length - 1].endTime = "23:59";
+    } else {
+      // Se tolgo uno in mezzo, quello PRIMA si allunga fino all'inizio di quello DOPO
+      newSegments[index - 1].endTime = newSegments[index].startTime;
+    }
+
     setTempSettings({ ...tempSettings, insulinSegments: newSegments });
+  };
+
+  // Init con Target nei segmenti se non c'è
+  const initVariableMode = () => {
+    const baseTarget = tempSettings.targetBg || 100;
+    const newSegments = [
+      { startTime: '00:00', endTime: '07:00', isf: tempSettings.isf, icr: tempSettings.icr, target: baseTarget, labelKey: 'night' },
+      { startTime: '07:00', endTime: '13:00', isf: tempSettings.isf, icr: tempSettings.icr, target: baseTarget, labelKey: 'morning' },
+      { startTime: '13:00', endTime: '19:00', isf: tempSettings.isf, icr: tempSettings.icr, target: baseTarget, labelKey: 'afternoon' },
+      { startTime: '19:00', endTime: '23:59', isf: tempSettings.isf, icr: tempSettings.icr, target: baseTarget, labelKey: 'evening' },
+    ];
+    setTempSettings({ ...tempSettings, variableInsulinEnabled: true, insulinSegments: newSegments });
   };
 
   const renderOnboardingStep = () => {
@@ -146,15 +258,7 @@ export default function App() {
                 </div>
               </button>
               <button
-                onClick={() => {
-                  const newSegments = [
-                    { startTime: '06:00', endTime: '12:00', isf: tempSettings.isf || 30, icr: tempSettings.icr || 10, labelKey: 'morning' },
-                    { startTime: '12:00', endTime: '18:00', isf: tempSettings.isf || 30, icr: tempSettings.icr || 10, labelKey: 'afternoon' },
-                    { startTime: '18:00', endTime: '23:00', isf: tempSettings.isf || 30, icr: tempSettings.icr || 10, labelKey: 'evening' },
-                    { startTime: '23:00', endTime: '06:00', isf: tempSettings.isf || 30, icr: tempSettings.icr || 10, labelKey: 'night' },
-                  ];
-                  setTempSettings({ ...tempSettings, variableInsulinEnabled: true, insulinSegments: newSegments });
-                }}
+                onClick={initVariableMode}
                 className={`w-full p-5 rounded-3xl border-2 transition-all flex items-center gap-4 ${tempSettings.variableInsulinEnabled ? 'bg-primary/20 border-primary' : 'bg-appBg border-transparent'}`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tempSettings.variableInsulinEnabled ? 'bg-primary text-white' : 'bg-white text-gray-400'}`}><Clock size={18} /></div>
@@ -168,15 +272,25 @@ export default function App() {
         );
       case 3:
         return (
-          <div className="flex flex-col h-full w-full overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500 px-6 pt-4">
+          <div className="flex flex-col h-full w-full overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500 px-4 pt-4">
             <div className="text-center shrink-0">
               <h2 className="text-2xl font-black text-textMain mb-1">Imposta Fattori</h2>
-              <p className="text-textMuted text-[10px] font-bold uppercase tracking-widest mb-4">ISF = Sensibilità | ICR = Rapporto Carbo</p>
+              <p className="text-textMuted text-[10px] font-bold uppercase tracking-widest mb-4">ISF = Sensibilità | ICR = Rapporto | TGT = Target</p>
             </div>
 
             <div className="w-full flex-1 overflow-y-auto no-scrollbar flex flex-col mb-4 min-h-0">
               {!tempSettings.variableInsulinEnabled ? (
-                <div className="space-y-4 my-auto">
+                // --- MODALITÀ FISSA ---
+                <div className="space-y-4 my-auto px-2">
+                  <div className="p-5 rounded-[2rem] bg-appBg/50 border border-textMain/5 text-left">
+                    <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Target Glicemico (mg/dL)</label>
+                    <input
+                      type="number"
+                      value={tempSettings.targetBg}
+                      onChange={(e) => setTempSettings({ ...tempSettings, targetBg: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
+                    />
+                  </div>
                   <div className="p-5 rounded-[2rem] bg-appBg/50 border border-textMain/5 text-left">
                     <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Sensibilità (ISF)</label>
                     <input
@@ -197,34 +311,79 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3 pb-20">
-                  {tempSettings.insulinSegments.map((seg, idx) => (
-                    <div key={idx} className="p-3 rounded-2xl flex items-center gap-1.5 bg-appBg/50 border border-textMain/5">
-                      <div className="flex flex-col w-[4.5rem] shrink-0">
-                        <label className="text-[7px] font-black text-textMuted uppercase mb-1 ml-1">DA</label>
-                        <input type="time" value={seg.startTime} onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)} className="w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-base text-center outline-none p-0 pb-1 text-textMain" />
-                      </div>
-                      <div className="flex flex-col w-[4.5rem] shrink-0 border-l border-dashed border-gray-300 pl-1.5">
-                        <label className="text-[7px] font-black text-textMuted uppercase mb-1 ml-1">A</label>
-                        <input type="time" value={(seg as any).endTime || ''} onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)} className="w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-base text-center outline-none p-0 pb-1 text-textMain" />
-                      </div>
-                      <div className="flex gap-2 flex-1 justify-center ml-1">
-                        <div className="flex flex-col w-12 sm:w-14">
-                          <label className="text-[7px] font-black text-textMuted uppercase mb-1 text-center">ISF</label>
-                          <input type="number" value={seg.isf} onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))} className="w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-center outline-none text-lg p-0 pb-1 text-textMain" />
+                // --- MODALITÀ VARIABILE (FASCE) ---
+                <div className="space-y-3 pb-20 px-1">
+                  {tempSettings.insulinSegments.map((seg, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === tempSettings.insulinSegments.length - 1;
+
+                    return (
+                      <div key={idx} className="p-4 rounded-3xl flex flex-col gap-3 bg-appBg/50 border border-textMain/5 shadow-sm">
+
+                        {/* RIGA ORARI (LINKED) */}
+                        <div className="flex justify-between items-center pb-2 border-b border-gray-200/50">
+                          <div className="flex items-center gap-2">
+                            <Clock size={14} className="text-textMuted" />
+                            {/* INIZIO */}
+                            <input
+                              type="time"
+                              value={seg.startTime}
+                              // Bloccato SOLO il primo
+                              disabled={isFirst}
+                              onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)}
+                              className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            />
+                            <span className="text-textMuted text-xs font-bold">➔</span>
+                            {/* FINE */}
+                            <input
+                              type="time"
+                              value={seg.endTime}
+                              // Bloccato SOLO l'ultimo
+                              disabled={isLast}
+                              onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)}
+                              className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            />
+                          </div>
+
+                          {!isLast && tempSettings.insulinSegments.length > 1 && (
+                            <button onClick={() => handleRemoveSegment(idx)} className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 active:scale-90 transition-all">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                          {isLast && tempSettings.insulinSegments.length > 1 && (
+                            <button onClick={() => handleRemoveSegment(idx)} className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 active:scale-90 transition-all">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
-                        <div className="flex flex-col w-12 sm:w-14">
-                          <label className="text-[7px] font-black text-textMuted uppercase mb-1 text-center">ICR</label>
-                          <input type="number" value={seg.icr} onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))} className="w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-center outline-none text-lg p-0 pb-1 text-textMain" />
+
+                        {/* RIGA VALORI */}
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">TARGET</label>
+                            <div className="bg-white rounded-xl p-2 shadow-sm">
+                              <input type="number" value={seg.target} onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))} className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ISF</label>
+                            <div className="bg-white rounded-xl p-2 shadow-sm">
+                              <input type="number" value={seg.isf} onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))} className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ICR</label>
+                            <div className="bg-white rounded-xl p-2 shadow-sm">
+                              <input type="number" value={seg.icr} onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))} className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain" />
+                            </div>
+                          </div>
                         </div>
+
                       </div>
-                      <button onClick={() => handleRemoveSegment(idx)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-100 text-red-500 hover:bg-red-200 active:scale-90 transition-all shrink-0 ml-1">
-                        <Trash2 size={16} strokeWidth={2.5} />
-                      </button>
-                    </div>
-                  ))}
-                  <button onClick={handleAddSegment} className="w-full py-4 mt-2 rounded-2xl border-2 border-dashed border-gray-300 text-gray-400 flex items-center justify-center gap-2 font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-all">
-                    <Plus size={16} strokeWidth={3} /> Aggiungi Fascia
+                    );
+                  })}
+                  <button onClick={handleAddSegment} className="w-full py-4 mt-2 rounded-2xl border-2 border-dashed border-gray-300 text-gray-400 flex items-center justify-center gap-2 font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 active:scale-98 transition-all">
+                    <Plus size={16} strokeWidth={3} /> Nuova Fascia
                   </button>
                 </div>
               )}
@@ -238,17 +397,8 @@ export default function App() {
               <Target size={40} strokeWidth={2.5} />
             </div>
             <h2 className="text-2xl font-black text-textMain mb-2">Quasi Fatto!</h2>
-            <p className="text-textMuted text-sm font-medium mb-8">Ultimi dettagli per il calcolo.</p>
+            <p className="text-textMuted text-sm font-medium mb-8">Personalizzazione finale.</p>
             <div className="w-full space-y-6 mb-10">
-              <div className="p-5 rounded-[2rem] bg-appBg/50 border border-textMain/5 text-left">
-                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Target Glicemico (mg/dL)</label>
-                <input
-                  type="number"
-                  value={tempSettings.targetBg}
-                  onChange={(e) => setTempSettings({ ...tempSettings, targetBg: parseFloat(e.target.value) || 0 })}
-                  className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
-                />
-              </div>
               <div className="text-left">
                 <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Arrotondamento Unità</label>
                 <div className="flex bg-appBg p-1.5 rounded-2xl">
@@ -262,34 +412,15 @@ export default function App() {
     }
   };
 
-  // --- SPLASH SCREEN: Usa percorso pubblico diretto ---
   if (isLoading) {
     return (
       <div className={`fixed inset-0 z-[999] flex flex-col items-center justify-center transition-all duration-700 ${settings.theme === 'dark' ? 'bg-[#0f172a]' : 'bg-[#ECF4E8]'}`}>
-
         <div className="relative mb-8 flex items-center justify-center">
-          {/* Aura decorativa dietro */}
           <div className="absolute w-64 h-64 bg-primary/10 blur-[60px] rounded-full animate-pulse scale-150"></div>
-
           <div className="relative w-44 h-44 z-10 animate-bounce-slow">
-            {/* Percorso assoluto che punta alla cartella dist finale */}
-            {/*
-            <img
-              src="/app_icon.png"
-              alt="Logo GlucoDose"
-              className="w-full h-full object-contain rounded-[2.8rem] shadow-2xl"
-              style={{ filter: 'none' }}
-              onError={(e) => {
-                console.error("ERRORE: Impossibile trovare /app_icon.png");
-                // Rimosso bordo rosso, lasciato pulito
-              }}
-            />
-            */}
-
             <img src={img_logo} alt="" />
           </div>
         </div>
-
         <div className="flex flex-col items-center animate-in fade-in zoom-in duration-1000">
           <h1 className={`text-4xl font-black tracking-tighter mb-3 ${settings.theme === 'dark' ? 'text-white' : 'text-[#1e293b]'}`}>
             GlucoDose
@@ -304,7 +435,6 @@ export default function App() {
     );
   }
 
-  // ... (Layout e render uguali a prima) ...
   if (showOnboarding) {
     return (
       <div className="fixed inset-0 z-[200] flex flex-col bg-white overflow-hidden touch-none font-sans">
@@ -347,7 +477,20 @@ export default function App() {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
-        return <Dashboard settings={settings} foods={foods} history={history} onLogDose={handleLogDose} onNavigateSettings={() => setActiveView('settings')} />;
+        return (
+          <Dashboard
+            settings={settings}
+            foods={foods}
+            history={history}
+            onLogDose={handleLogDose}
+            onNavigateSettings={() => setActiveView('settings')}
+            onNavigateHistory={() => setActiveView('history')} // ← AGGIUNGI QUESTA PROP
+            glucose={dashboardGlucose}
+            setGlucose={setDashboardGlucose}
+            selectedFoods={dashboardFoods}
+            setSelectedFoods={setDashboardFoods}
+          />
+        );
       case 'food':
         return <FoodLibrary foods={foods} onAddFood={handleAddFood} settings={settings} />;
       case 'history':
@@ -355,7 +498,20 @@ export default function App() {
       case 'settings':
         return <Settings settings={settings} onSave={handleSaveSettings} />;
       default:
-        return <Dashboard settings={settings} foods={foods} history={history} onLogDose={handleLogDose} onNavigateSettings={() => setActiveView('settings')} />;
+        return (
+          <Dashboard
+            settings={settings}
+            foods={foods}
+            history={history}
+            onLogDose={handleLogDose}
+            onNavigateSettings={() => setActiveView('settings')}
+            onNavigateHistory={() => setActiveView('history')} // ← AGGIUNGI ANCHE QUI
+            glucose={dashboardGlucose}
+            setGlucose={setDashboardGlucose}
+            selectedFoods={dashboardFoods}
+            setSelectedFoods={setDashboardFoods}
+          />
+        );
     }
   };
 

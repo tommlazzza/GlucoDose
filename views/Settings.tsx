@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserSettings, InsulinSegment } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Save, Check, User, Moon, Sun, Target, Zap, Ruler, Plus, Trash2 } from 'lucide-react';
+import { Save, Check, User, Moon, Sun, Target, Zap, Ruler, Plus, Trash2, Clock, Download, Upload, RotateCcw, HardDrive } from 'lucide-react';
+import { exportAllData, importAllData, clearAllData, getStorageSize } from '../storageUtils';
 
 interface SettingsProps {
   settings: UserSettings;
@@ -9,7 +10,7 @@ interface SettingsProps {
   onBack?: () => void;
 }
 
-// 1. Componente Card
+// Helper Components
 const Card = ({ children, title, icon, colorClass, extra, isDark }: { children: React.ReactNode, title: string, icon: React.ReactNode, colorClass: string, extra?: React.ReactNode, isDark: boolean }) => (
   <div className={`p-5 rounded-[2rem] shadow-sm transition-all duration-300 border mb-4 ${isDark ? 'bg-gray-800/40 border-white/5' : 'bg-white border-transparent'}`}>
     <div className="flex items-center justify-between mb-4">
@@ -25,7 +26,6 @@ const Card = ({ children, title, icon, colorClass, extra, isDark }: { children: 
   </div>
 );
 
-// 2. Componente InputField
 const InputField = ({ label, value, onChange, isDark, type = "number", placeholder = "" }: { label: string, value: any, onChange: (val: string) => void, isDark: boolean, type?: string, placeholder?: string }) => (
   <div className="flex flex-col gap-2 flex-1">
     <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{label}</label>
@@ -39,60 +39,106 @@ const InputField = ({ label, value, onChange, isDark, type = "number", placehold
   </div>
 );
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
   const t = TRANSLATIONS[settings.language];
   const isDark = settings.theme === 'dark';
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
   const [saved, setSaved] = useState(false);
+  const [storageSize, setStorageSize] = useState<string>('');
+
+  // Calcola dimensione storage all'avvio
+  useEffect(() => {
+    setStorageSize(getStorageSize());
+  }, []);
 
   const handleChange = (key: keyof UserSettings, value: any) => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
     setSaved(false);
   };
 
-  // Attiva/Disattiva Insulina Variabile con Default Fasce CORRETTE
+  // --- LOGICA GESTIONE FASCE ORARIE ---
+
   const toggleVariableInsulin = () => {
     const isEnabling = !localSettings.variableInsulinEnabled;
     let newSegments = localSettings.insulinSegments;
 
-    // FORZA il caricamento delle 4 fasce richieste quando si abilita
-    if (isEnabling) {
+    if (isEnabling && (!newSegments || newSegments.length === 0)) {
+      const baseTarget = localSettings.targetBg || 100;
       newSegments = [
-        { startTime: '06:00', endTime: '12:00', isf: localSettings.isf || 30, icr: localSettings.icr || 10, labelKey: 'morning' },
-        { startTime: '12:00', endTime: '18:00', isf: localSettings.isf || 30, icr: localSettings.icr || 10, labelKey: 'afternoon' },
-        { startTime: '18:00', endTime: '23:00', isf: localSettings.isf || 30, icr: localSettings.icr || 10, labelKey: 'evening' },
-        { startTime: '23:00', endTime: '06:00', isf: localSettings.isf || 30, icr: localSettings.icr || 10, labelKey: 'night' },
+        { startTime: '00:00', endTime: '07:00', isf: localSettings.isf || 30, icr: localSettings.icr || 10, target: baseTarget, labelKey: 'night' },
+        { startTime: '07:00', endTime: '13:00', isf: localSettings.isf || 30, icr: localSettings.icr || 10, target: baseTarget, labelKey: 'morning' },
+        { startTime: '13:00', endTime: '19:00', isf: localSettings.isf || 30, icr: localSettings.icr || 10, target: baseTarget, labelKey: 'afternoon' },
+        { startTime: '19:00', endTime: '23:59', isf: localSettings.isf || 30, icr: localSettings.icr || 10, target: baseTarget, labelKey: 'evening' },
       ];
       handleChange('insulinSegments', newSegments);
     }
-
     handleChange('variableInsulinEnabled', isEnabling);
   };
 
-  const handleSegmentChange = (index: number, key: keyof InsulinSegment | 'endTime', value: any) => {
+  const handleSegmentChange = (index: number, key: keyof InsulinSegment, value: any) => {
     const newSegments = [...localSettings.insulinSegments];
     newSegments[index] = { ...newSegments[index], [key]: value };
+
+    if (key === 'endTime' && index < newSegments.length - 1) {
+      newSegments[index + 1].startTime = value;
+    }
+
+    if (key === 'startTime' && index > 0) {
+      newSegments[index - 1].endTime = value;
+    }
+
     handleChange('insulinSegments', newSegments);
   };
 
   const handleAddSegment = () => {
-    const newSegment: InsulinSegment & { endTime?: string } = {
-      startTime: "12:00",
-      endTime: "13:00",
-      isf: localSettings.isf || 30,
-      icr: localSettings.icr || 10,
+    const segments = [...localSettings.insulinSegments];
+    const lastIndex = segments.length - 1;
+    const lastSegment = segments[lastIndex];
+
+    const [startH, startM] = lastSegment.startTime.split(':').map(Number);
+    const endH = 24;
+    const endM = 0;
+
+    const startTotalMinutes = startH * 60 + startM;
+    const endTotalMinutes = endH * 60 + endM;
+    const durationMinutes = endTotalMinutes - startTotalMinutes;
+
+    const splitMinutes = startTotalMinutes + Math.floor(durationMinutes / 2);
+    const splitH = Math.floor(splitMinutes / 60);
+    const splitM = splitMinutes % 60;
+
+    let safeH = splitH >= 23 ? 23 : splitH;
+    if (safeH === startH) safeH = safeH + 1;
+
+    const newSplitTime = `${safeH.toString().padStart(2, '0')}:${splitM.toString().padStart(2, '0')}`;
+
+    segments[lastIndex].endTime = newSplitTime;
+
+    const newSegment: InsulinSegment = {
+      startTime: newSplitTime,
+      endTime: "23:59",
+      isf: lastSegment.isf,
+      icr: lastSegment.icr,
+      target: lastSegment.target,
       labelKey: 'custom'
     };
-    const newSegments = [...localSettings.insulinSegments, newSegment].sort((a, b) => {
-      const [ha, ma] = a.startTime.split(':').map(Number);
-      const [hb, mb] = b.startTime.split(':').map(Number);
-      return (ha * 60 + ma) - (hb * 60 + mb);
-    });
-    handleChange('insulinSegments', newSegments);
+
+    segments.push(newSegment);
+    handleChange('insulinSegments', segments);
   };
 
   const handleRemoveSegment = (index: number) => {
+    if (localSettings.insulinSegments.length <= 1) return;
     const newSegments = localSettings.insulinSegments.filter((_, i) => i !== index);
+
+    if (index === 0) {
+      newSegments[0].startTime = "00:00";
+    } else if (index === localSettings.insulinSegments.length - 1) {
+      newSegments[newSegments.length - 1].endTime = "23:59";
+    } else {
+      newSegments[index - 1].endTime = newSegments[index].startTime;
+    }
+
     handleChange('insulinSegments', newSegments);
   };
 
@@ -102,21 +148,55 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
     setTimeout(() => setSaved(false), 2000);
   };
 
+  // --- FUNZIONI BACKUP/RESTORE ---
+
+  const handleExport = () => {
+    try {
+      exportAllData();
+    } catch (error) {
+      alert('Errore durante l\'esportazione dei dati');
+      console.error(error);
+    }
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    importAllData(file)
+      .then(() => {
+        alert('Dati importati con successo! L\'app si ricaricherà.');
+        window.location.reload();
+      })
+      .catch((error) => {
+        alert('Errore durante l\'importazione: ' + error.message);
+        console.error(error);
+      });
+  };
+
+  const handleReset = () => {
+    if (window.confirm('⚠️ ATTENZIONE: Questa azione cancellerà TUTTI i dati salvati (impostazioni, storico, alimenti). Questa azione è IRREVERSIBILE!\n\nSei assolutamente sicuro di voler continuare?')) {
+      if (window.confirm('Confermi di voler cancellare TUTTO? Non potrai recuperare i dati!')) {
+        clearAllData();
+        alert('Dati cancellati. L\'app si ricaricherà.');
+        window.location.reload();
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full overflow-hidden">
+      {/* HEADER */}
       <header className="flex items-center gap-4 p-6 pt-2 shrink-0 z-20 relative">
         <h2 className={`text-2xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-textMain'}`}>{t.profile}</h2>
       </header>
 
+      {/* CONTENT SCROLLABILE */}
       <div className="flex-1 overflow-y-auto scrolling-touch no-scrollbar px-6 pb-44 min-h-0 w-full">
         <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-right duration-300">
 
           <Card title={t.yourName} icon={<User size={20} />} colorClass="bg-blue-100 text-blue-500" isDark={isDark}>
             <InputField label="Nome Utente" value={localSettings.userName} onChange={(val) => handleChange('userName', val)} type="text" placeholder="Il tuo nome" isDark={isDark} />
-          </Card>
-
-          <Card title="Target Glicemico" icon={<Target size={20} />} colorClass="bg-red-100 text-red-500" isDark={isDark}>
-            <InputField label="Target (mg/dL)" value={localSettings.targetBg} onChange={(val) => handleChange('targetBg', parseFloat(val) || 0)} isDark={isDark} />
           </Card>
 
           <Card
@@ -133,46 +213,82 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
               </button>
             }
           >
-            <p className="text-[10px] font-bold text-textMuted mb-4 leading-relaxed">{t.variableInsulinDesc}</p>
+            <p className="text-[10px] font-bold text-textMuted mb-6 leading-relaxed">{t.variableInsulinDesc}</p>
 
             {!localSettings.variableInsulinEnabled ? (
-              <div className="flex gap-3">
-                <InputField label="ISF (Sensibilità)" value={localSettings.isf} onChange={(val) => handleChange('isf', parseFloat(val) || 0)} isDark={isDark} />
-                <InputField label="ICR (Rapporto)" value={localSettings.icr} onChange={(val) => handleChange('icr', parseFloat(val) || 0)} isDark={isDark} />
+              <div className="space-y-4">
+                <InputField label="Target Glicemico (mg/dL)" value={localSettings.targetBg} onChange={(val) => handleChange('targetBg', parseFloat(val) || 0)} isDark={isDark} />
+                <div className="flex gap-3">
+                  <InputField label="ISF (Sensibilità)" value={localSettings.isf} onChange={(val) => handleChange('isf', parseFloat(val) || 0)} isDark={isDark} />
+                  <InputField label="ICR (Rapporto)" value={localSettings.icr} onChange={(val) => handleChange('icr', parseFloat(val) || 0)} isDark={isDark} />
+                </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                {localSettings.insulinSegments.map((seg, idx) => (
-                  <div key={idx} className={`p-3 rounded-2xl flex items-center gap-1.5 ${isDark ? 'bg-gray-700/30' : 'bg-appBg'}`}>
-                    {/* INIZIO */}
-                    <div className="flex flex-col w-[4.5rem] shrink-0">
-                      <label className="text-[7px] font-black text-textMuted uppercase mb-1 ml-1">DA</label>
-                      <input type="time" value={seg.startTime} onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)} className={`w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-base text-center outline-none p-0 pb-1 ${isDark ? 'text-white' : 'text-textMain'}`} />
-                    </div>
-                    {/* FINE */}
-                    <div className="flex flex-col w-[4.5rem] shrink-0 border-l border-dashed border-gray-300 pl-1.5">
-                      <label className="text-[7px] font-black text-textMuted uppercase mb-1 ml-1">A</label>
-                      <input type="time" value={(seg as any).endTime || ''} onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)} className={`w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-base text-center outline-none p-0 pb-1 ${isDark ? 'text-white' : 'text-textMain'}`} />
-                    </div>
-                    {/* ISF & ICR */}
-                    <div className="flex gap-2 flex-1 justify-center ml-1">
-                      <div className="flex flex-col w-12 sm:w-14">
-                        <label className="text-[7px] font-black text-textMuted uppercase mb-1 text-center">ISF</label>
-                        <input type="number" value={seg.isf} onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))} className={`w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-center outline-none text-lg p-0 pb-1 ${isDark ? 'text-white' : 'text-textMain'}`} />
+              <div className="space-y-4">
+                {localSettings.insulinSegments.map((seg, idx) => {
+                  const isFirst = idx === 0;
+                  const isLast = idx === localSettings.insulinSegments.length - 1;
+
+                  return (
+                    <div key={idx} className={`p-4 rounded-3xl flex flex-col gap-3 transition-all ${isDark ? 'bg-gray-700/30 hover:bg-gray-700/50' : 'bg-appBg border border-gray-100 hover:border-primary/20 hover:shadow-sm'}`}>
+
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-500/10">
+                        <div className="flex items-center gap-2">
+                          <Clock size={14} className="text-textMuted" />
+                          <input
+                            type="time"
+                            value={seg.startTime}
+                            disabled={isFirst}
+                            onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)}
+                            className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
+                          />
+                          <span className="text-textMuted text-xs font-bold">➔</span>
+                          <input
+                            type="time"
+                            value={seg.endTime}
+                            disabled={isLast}
+                            onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)}
+                            className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
+                          />
+                        </div>
+
+                        {!isLast && localSettings.insulinSegments.length > 1 && (
+                          <button onClick={() => handleRemoveSegment(idx)} className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 active:scale-90 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                        {isLast && localSettings.insulinSegments.length > 1 && (
+                          <button onClick={() => handleRemoveSegment(idx)} className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 active:scale-90 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
-                      <div className="flex flex-col w-12 sm:w-14">
-                        <label className="text-[7px] font-black text-textMuted uppercase mb-1 text-center">ICR</label>
-                        <input type="number" value={seg.icr} onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))} className={`w-full bg-transparent border-b-2 border-primary/30 focus:border-primary font-bold text-center outline-none text-lg p-0 pb-1 ${isDark ? 'text-white' : 'text-textMain'}`} />
+
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">TARGET</label>
+                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+                            <input type="number" value={seg.target} onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))} className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ISF</label>
+                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+                            <input type="number" value={seg.isf} onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))} className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ICR</label>
+                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+                            <input type="number" value={seg.icr} onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))} className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    {/* ELIMINA */}
-                    <button onClick={() => handleRemoveSegment(idx)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-100 text-red-500 hover:bg-red-200 active:scale-90 transition-all shrink-0 ml-1">
-                      <Trash2 size={16} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                ))}
-                <button onClick={handleAddSegment} className={`w-full py-4 mt-2 rounded-2xl border-2 border-dashed flex items-center justify-center gap-2 font-black uppercase text-[10px] tracking-widest transition-all ${isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-800' : 'border-gray-300 text-gray-400 hover:bg-gray-50'}`}>
-                  <Plus size={16} strokeWidth={3} /> Aggiungi Fascia Oraria
+                  );
+                })}
+                <button onClick={handleAddSegment} className={`w-full py-4 mt-2 rounded-2xl border-2 border-dashed flex items-center justify-center gap-2 font-black uppercase text-[10px] tracking-widest transition-all active:scale-98 ${isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-800' : 'border-primary/30 text-primary hover:bg-primary/5'}`}>
+                  <Plus size={16} strokeWidth={3} /> Nuova Fascia
                 </button>
               </div>
             )}
@@ -192,11 +308,56 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
             </div>
           </Card>
 
+          {/* CARD BACKUP E DATI */}
+          <Card title="Backup e Dati" icon={<HardDrive size={20} />} colorClass="bg-green-100 text-green-600" isDark={isDark}>
+            <div className="space-y-3">
+              {/* Info spazio occupato */}
+              <div className={`p-3 rounded-xl flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-appBg'}`}>
+                <span className="text-xs font-bold text-textMuted">Spazio occupato</span>
+                <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{storageSize}</span>
+              </div>
+
+              {/* Esporta Backup */}
+              <button
+                onClick={handleExport}
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+              >
+                <Download size={18} strokeWidth={3} />
+                Esporta Backup
+              </button>
+
+              {/* Importa Backup */}
+              <label className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer ${isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                <Upload size={18} strokeWidth={3} />
+                Importa Backup
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Reset Completo */}
+              <button
+                onClick={handleReset}
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+              >
+                <RotateCcw size={18} strokeWidth={3} />
+                Reset Completo
+              </button>
+
+              <p className="text-[9px] text-textMuted text-center font-bold leading-relaxed pt-2">
+                ⚠️ Il reset cancella TUTTI i dati in modo permanente. Esporta un backup prima di procedere!
+              </p>
+            </div>
+          </Card>
+
         </div>
       </div>
 
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] left-0 right-0 px-6 max-w-md mx-auto z-40">
-        <button onClick={handleSave} className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all duration-300 transform active:scale-[0.98] ${saved ? 'bg-secondary text-gray-900 shadow-secondary/20' : 'bg-primary text-gray-900 shadow-primary/30'}`}>
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] left-0 right-0 px-6 max-w-md mx-auto z-40 pointer-events-none">
+        <button onClick={handleSave} className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all duration-300 transform active:scale-[0.98] pointer-events-auto ${saved ? 'bg-secondary text-gray-900 shadow-secondary/20' : 'bg-primary text-gray-900 shadow-primary/30'}`}>
           {saved ? <Check size={22} strokeWidth={3} /> : <Save size={22} strokeWidth={2.5} />}
           {saved ? t.saved?.toUpperCase() || 'SALVATO' : t.saveProfile.toUpperCase()}
         </button>

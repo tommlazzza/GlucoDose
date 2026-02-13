@@ -26,4 +26,62 @@ body {
     width: 100vw;
     height: 100vh;
     overscroll-behavior-y: none;
+
+    /* --- RENDI L'APP NON SELEZIONABILE --- */
+    -webkit-user-select: none;
+    /* Safari / Chrome */
+    -moz-user-select: none;
+    /* Firefox */
+    -ms-user-select: none;
+    /* IE / Edge */
+    user-select: none;
+    /* Standard */
+
+    /* Rimuove l'evidenziazione blu al tocco su mobile */
+    -webkit-tap-highlight-color: transparent;
+
+    /* Disabilita il menu contestuale (copia/incolla/cerca) al tocco prolungato su iOS */
+    -webkit-touch-callout: none;
+}
+
+/* IMPORTANTE: Riabilita la selezione per input e textarea altrimenti non puoi scriverci */
+input,
+textarea {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* --- PREVIENI SELEZIONE DEI GRAFICI --- */
+svg,
+canvas,
+.recharts-wrapper,
+.recharts-surface,
+.recharts-layer,
+.recharts-cartesian-grid,
+.recharts-line,
+.recharts-area {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    pointer-events: auto !important;
+}
+
+/* Previeni il bordo blu di selezione */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Rimuovi outline focus su elementi non interattivi */
+svg:focus,
+canvas:focus {
+    outline: none !important;
+}
+
+/* --- BLOCCA LO SCROLL QUANDO SI TOCCA IL GRAFICO --- */
+.touch-none {
+    touch-action: none !important;
+    -ms-touch-action: none !important;
 }
