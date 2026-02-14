@@ -176,7 +176,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
   };
 
   const handleReset = () => {
-    if (window.confirm('⚠️ ATTENZIONE: Questa azione cancellerà TUTTI i dati salvati (impostazioni, storico, alimenti). Questa azione è IRREVERSIBILE!\n\nSei assolutamente sicuro di voler continuare?')) {
+    if (window.confirm('ATTENZIONE: Questa azione cancellerà TUTTI i dati salvati (impostazioni, storico, alimenti). Questa azione è IRREVERSIBILE!\n\nSei assolutamente sicuro di voler continuare?')) {
       if (window.confirm('Confermi di voler cancellare TUTTO? Non potrai recuperare i dati!')) {
         clearAllData();
         alert('Dati cancellati. L\'app si ricaricherà.');
@@ -369,7 +369,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
               </button>
 
               <p className="text-[9px] text-textMuted text-center font-bold leading-relaxed pt-2">
-                ⚠️ Il reset cancella TUTTI i dati in modo permanente. Esporta un backup prima di procedere!
+                Il reset cancella TUTTI i dati in modo permanente. Esporta un backup prima di procedere!
               </p>
             </div>
           </Card>
@@ -377,10 +377,9 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
         </div>
       </div>
 
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] left-0 right-0 px-6 max-w-md mx-auto z-40 pointer-events-none">
-        <button onClick={handleSave} className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all duration-300 transform active:scale-[0.98] pointer-events-auto ${saved ? 'bg-secondary text-gray-900 shadow-secondary/20' : 'bg-primary text-gray-900 shadow-primary/30'}`}>
-          {saved ? <Check size={22} strokeWidth={3} /> : <Save size={22} strokeWidth={2.5} />}
-          {saved ? t.saved?.toUpperCase() || 'SALVATO' : t.saveProfile.toUpperCase()}
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] right-6 z-40 pointer-events-none">
+        <button onClick={handleSave} className={`w-16 h-16 rounded-full font-black shadow-2xl flex items-center justify-center transition-all duration-300 transform active:scale-90 pointer-events-auto ${saved ? 'bg-secondary text-gray-900 shadow-secondary/20' : 'bg-primary text-gray-900 shadow-primary/30'}`}>
+          {saved ? <Check size={28} strokeWidth={3} /> : <Save size={28} strokeWidth={2.5} />}
         </button>
       </div>
     </div>

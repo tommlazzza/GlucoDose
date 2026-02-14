@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { HistoryEntry, UserSettings } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { AreaChart, Area, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, ReferenceArea } from 'recharts';
-import { Activity, Clock, Syringe, ArrowUp, ArrowDown } from 'lucide-react';
+import { Activity, Clock, Syringe, ArrowUp, ArrowDown, ChevronRight, X } from 'lucide-react';
 
 interface HistoryProps {
   history: HistoryEntry[];
@@ -25,10 +25,13 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
   const isDark = settings.theme === 'dark';
   const [now, setNow] = useState(new Date());
   const [activeTooltipIOB, setActiveTooltipIOB] = useState(false);
-  const [activeTooltipGlucose, setActiveTooltipGlucose] = useState(false);
+  const [showFullHistory, setShowFullHistory] = useState(false);
 
+  // Aggiorna now ogni minuto per ricalcolare IOB
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60000);
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 60000); // Ogni 60 secondi
     return () => clearInterval(interval);
   }, []);
 
@@ -167,7 +170,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
     else if (val > 180) color = AGP_COLORS.YELLOW; // Giallo
 
     // Dimensione fissa più grande
-    const radius = 7;
+    const radius = 5;
 
     return (
       <circle
@@ -186,6 +189,9 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
   };
+
+  // Mostra solo ultimi 3 boli
+  const recentHistory = history.slice(0, 3);
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar">
@@ -219,6 +225,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           <div className="h-32 w-full touch-none"
             onTouchStart={() => setActiveTooltipIOB(true)}
             onTouchEnd={() => setActiveTooltipIOB(false)}
+            onMouseEnter={() => setActiveTooltipIOB(true)}
             onMouseLeave={() => setActiveTooltipIOB(false)}
           >
             <ResponsiveContainer width="100%" height="100%">
@@ -233,6 +240,8 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                 <YAxis hide domain={[0, 'auto']} />
                 <Tooltip
                   active={activeTooltipIOB}
+                  animationDuration={100} // Ridotto da 400 a 100 per più fluidità DA VALUTARE DI CAMBIARE
+                  animationEasing="ease-out"
                   cursor={activeTooltipIOB ? { stroke: isDark ? '#ffffff40' : '#00000040', strokeWidth: 2, strokeDasharray: '5 5' } : false}
                   content={({ active, payload }) => active && activeTooltipIOB && payload && payload.length ? (
                     <div className={`px-3 py-2 rounded-xl text-[10px] shadow-xl border ${isDark ? 'bg-gray-800 border-white/10 text-white' : 'bg-white border-gray-100 text-textMain'}`}>
@@ -270,12 +279,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             </div>
           </div>
 
-          <div className="h-64 w-full touch-none"
-            onTouchStart={() => setActiveTooltipGlucose(true)}
-            onTouchEnd={() => setActiveTooltipGlucose(false)}
-            onMouseEnter={() => setActiveTooltipGlucose(true)}
-            onMouseLeave={() => setActiveTooltipGlucose(false)}
-          >
+          <div className="h-64 w-full" style={{ pointerEvents: 'none' }}>
             {myDayData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={myDayData} margin={{ top: 20, right: 20, left: -20, bottom: 5 }}>
@@ -293,7 +297,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   />
                   <YAxis
                     type="number"
-                    domain={[40, 400]}
+                    domain={[20, 600]}
                     allowDataOverflow={true}
                     tick={{ fontSize: 10, fill: '#9CA3AF' }}
                     axisLine={false}
@@ -313,22 +317,9 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                     stroke="transparent"
                     strokeWidth={0}
                     dot={<CustomizedDot />}
-                    activeDot={activeTooltipGlucose ? <CustomizedDot r={10} /> : false}
+                    activeDot={false}
                     animationDuration={1500}
                     isAnimationActive={true}
-                  />
-                  <Tooltip
-                    active={activeTooltipGlucose}
-                    cursor={{ stroke: isDark ? '#ffffff20' : '#00000020', strokeWidth: 1 }}
-                    content={({ active, payload }) => active && activeTooltipGlucose && payload && payload.length ? (
-                      <div className={`px-4 py-3 rounded-2xl shadow-xl border ${isDark ? 'bg-gray-800 border-white/10 text-white' : 'bg-white border-gray-100 text-textMain'}`}>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">{payload[0].payload.displayTime}</p>
-                        <p className="text-xl font-black flex items-baseline gap-1">
-                          {payload[0].payload.glucose}
-                          <span className="text-[10px] font-bold text-textMuted">mg/dL</span>
-                        </p>
-                      </div>
-                    ) : null}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -342,12 +333,22 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           </div>
         </section>
 
-        {/* --- STORICO DETTAGLIATO --- */}
+        {/* --- STORICO DETTAGLIATO (Ultimi 5) --- */}
         <section>
-          <h3 className={`text-lg font-extrabold mb-4 px-2 ${isDark ? 'text-white' : 'text-textMain'}`}>Diario Boli</h3>
+          <div className="flex items-center justify-between mb-4 px-2">
+            <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>Diario Boli</h3>
+            {history.length > 5 && (
+              <button
+                onClick={() => setShowFullHistory(true)}
+                className={`text-xs font-black uppercase tracking-wider flex items-center gap-1 ${isDark ? 'text-primary' : 'text-primary'}`}
+              >
+                Mostra Tutti <ChevronRight size={14} />
+              </button>
+            )}
+          </div>
           <div className="flex flex-col gap-3">
-            {history.length === 0 && <p className="text-center text-textMuted text-xs py-4">Nessun bolo registrato.</p>}
-            {history.map((entry) => (
+            {recentHistory.length === 0 && <p className="text-center text-textMuted text-xs py-4">Nessun bolo registrato.</p>}
+            {recentHistory.map((entry) => (
               <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > 180 ? 'bg-orange-100 text-orange-600' : (entry.glucose < 70 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
@@ -379,6 +380,51 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           </div>
         </section>
       </div>
+
+      {/* MODALE CRONOLOGIA COMPLETA */}
+      {showFullHistory && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFullHistory(false)}></div>
+          <div className={`relative w-full max-w-2xl max-h-[80vh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+            <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-textMain'}`}>Cronologia Completa</h3>
+              <button onClick={() => setShowFullHistory(false)} className={`p-2 rounded-full ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex flex-col gap-3">
+                {history.map((entry) => (
+                  <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > 180 ? 'bg-orange-100 text-orange-600' : (entry.glucose < 70 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                        {entry.glucose}
+                      </div>
+                      <div>
+                        <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{formatDate(entry.timestamp)}</p>
+                        <p className="text-[10px] font-bold text-textMuted">{entry.carbs}g Carbo • {entry.mealType}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <p className="text-lg font-black text-primary">{entry.units} U</p>
+                      {entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider">Cons. {entry.recommendedUnits} U</span>
+                          {entry.units > entry.recommendedUnits ? (
+                            <ArrowUp size={12} className="text-red-400" strokeWidth={3} />
+                          ) : (
+                            <ArrowDown size={12} className="text-green-400" strokeWidth={3} />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -156,8 +156,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleCalculateClick = () => {
     // Controlla se la glicemia inserita è fuori range
     const glucoseValue = parseFloat(glucose);
-    if (glucose && (glucoseValue < 40 || glucoseValue > 400)) {
-      alert('⚠️ Attenzione: la glicemia deve essere tra 40 e 400 mg/dL');
+    if (glucose && (glucoseValue < 20 || glucoseValue > 600)) {
+      alert('Attenzione: la glicemia deve essere tra 20 e 600 mg/dL');
       return;
     }
 
