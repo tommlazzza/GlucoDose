@@ -27,7 +27,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   dairy: '🥛',
   protein: '🍗',
   sweet: '🍩',
-  drink: '🥤', // NUOVA ICONA
+  drink: '🥤',
   all: '🥗'
 };
 
@@ -79,7 +79,7 @@ export const TRANSLATIONS = {
       dairy: 'Latticini',
       protein: 'Proteine',
       sweet: 'Dolci',
-      drink: 'Bevande', // NUOVA CATEGORIA
+      drink: 'Bevande',
       all: 'Tutti',
       morning: 'Buongiorno',
       afternoon: 'Buon pomeriggio',
@@ -123,7 +123,7 @@ export const MOCK_FOODS: FoodItem[] = [
   { id: '28', name: 'Riso', carbsPerServing: 80, category: 'grain', lastUsed: Date.now() },
   { id: '29', name: 'Tortellini', carbsPerServing: 50, category: 'grain', lastUsed: Date.now() },
 
-  // BEVANDE (Category 2) -> ORA 'drink'
+  // BEVANDE (Category 2) -> 'drink'
   { id: '30', name: 'Aranciata', carbsPerServing: 10, category: 'drink', lastUsed: Date.now() },
   { id: '31', name: 'Birra', carbsPerServing: 3.5, category: 'drink', lastUsed: Date.now() },
   { id: '32', name: 'Cola', carbsPerServing: 10, category: 'drink', lastUsed: Date.now() },

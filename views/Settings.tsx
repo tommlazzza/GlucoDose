@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserSettings, InsulinSegment } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Save, Check, User, Moon, Sun, Target, Zap, Ruler, Plus, Trash2, Clock, Download, Upload, RotateCcw, HardDrive } from 'lucide-react';
+import { Save, Check, User, Moon, Sun, Zap, Ruler, Plus, Trash2, Clock, Download, Upload, RotateCcw, HardDrive, ChevronLeft } from 'lucide-react';
 import { exportAllData, importAllData, clearAllData, getStorageSize } from '../storageUtils';
 
 interface SettingsProps {
@@ -40,7 +40,7 @@ const InputField = ({ label, value, onChange, isDark, type = "number", placehold
   </div>
 );
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) => {
   const t = TRANSLATIONS[settings.language];
   const isDark = settings.theme === 'dark';
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
@@ -189,6 +189,14 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
     <div className="flex flex-col h-full w-full overflow-hidden">
       {/* HEADER */}
       <header className="flex items-center gap-4 p-6 pt-2 shrink-0 z-20 relative">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className={`p-2 rounded-full transition-all active:scale-90 ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+          >
+            <ChevronLeft size={24} className={isDark ? 'text-white' : 'text-textMain'} />
+          </button>
+        )}
         <h2 className={`text-2xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-textMain'}`}>{t.profile}</h2>
       </header>
 
@@ -241,7 +249,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
                             value={seg.startTime}
                             disabled={isFirst}
                             onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)}
-                            className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
+                            className={`appearance-none bg-transparent font-black text-sm outline-none w-[4.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
                             style={{ colorScheme: isDark ? 'dark' : 'light' }}
                           />
                           <span className="text-textMuted text-xs font-bold">➔</span>
@@ -250,7 +258,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
                             value={seg.endTime}
                             disabled={isLast}
                             onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)}
-                            className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
+                            className={`appearance-none bg-transparent font-black text-sm outline-none w-[4.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
                             style={{ colorScheme: isDark ? 'dark' : 'light' }}
                           />
                         </div>

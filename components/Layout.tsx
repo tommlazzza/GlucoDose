@@ -2,6 +2,7 @@ import React from 'react';
 import { ViewState, UserSettings } from '../types';
 import { Home, Utensils, Activity } from 'lucide-react';
 import { TRANSLATIONS } from '../constants';
+import { Capacitor } from '@capacitor/core';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,17 +15,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate
   const t = TRANSLATIONS[settings.language];
   const isDark = settings.theme === 'dark';
 
+  // Rilevamento piattaforma
+  const isAndroid = Capacitor.getPlatform() === 'android';
+
   return (
-    /* fixed inset-0 blocca l'app allo schermo */
     <div className={`fixed inset-0 flex flex-col font-sans overflow-hidden transition-colors duration-200 ${isDark ? 'bg-[#0f172a] text-white' : 'bg-appBg text-textMain'}`}>
 
       {/* Sfondo */}
       <div className={`absolute top-[-10%] right-[-20%] w-96 h-96 rounded-full blur-3xl mix-blend-multiply opacity-70 pointer-events-none ${isDark ? 'bg-primary/10' : 'bg-primary/20'}`} />
 
-      {/* Main: pt gestisce il Notch. min-h-0 è cruciale per i figli flex */}
-      <main className="relative z-10 flex-1 flex flex-col w-full h-full pt-[env(safe-area-inset-top)] min-h-0">
+      {/* --- FORMULA UNIVERSALE PER IL PADDING --- 
+          - iOS: Usa sempre 'env' (è preciso al 100% su Apple).
+          - Android: Usa 'max(env, 34px)'.
+             * Se il telefono ha un notch grande (es. 45px), userà 45px.
+             * Se il telefono è vecchio o "buggato" (0px), userà 34px (altezza standard sicura).
+      */}
+      <main className={`relative z-10 flex-1 flex flex-col w-full h-full min-h-0 ${isAndroid ? 'pt-[max(env(safe-area-inset-top),34px)]' : 'pt-[env(safe-area-inset-top)]'}`}>
 
-        {/* WRAPPER FIGLI: flex-1 + min-h-0 permette lo scroll interno */}
+        {/* Wrapper Scrollabile */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full relative">
           {children}
         </div>

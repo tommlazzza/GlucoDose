@@ -6,7 +6,9 @@ import { HistoryView } from './views/History';
 import { Settings } from './views/Settings';
 import { UserSettings, ViewState, HistoryEntry, FoodItem, InsulinSegment, SelectedFoodItem } from './types';
 import { DEFAULT_SETTINGS, MOCK_HISTORY, MOCK_FOODS } from './constants';
-import { User, Check, Target, Zap, ArrowRight, ChevronLeft, Clock, Plus, Trash2 } from 'lucide-react';
+import { User, Check, Target, Zap, ArrowRight, ChevronLeft, Clock, Plus, Trash2 } from 'lucide-react'
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import img_logo from './assets/icon.png';
 
 export default function App() {
@@ -56,10 +58,32 @@ export default function App() {
     document.documentElement.style.backgroundColor = bgColor;
     document.body.style.backgroundColor = bgColor;
 
+    const updateStatusBar = async () => {
+      try {
+        const isAndroid = Capacitor.getPlatform() === 'android';
+
+        if (isAndroid) {
+          // TRUCCO: Attiviamo l'overlay (così vediamo l'app sotto)
+          // Ma usiamo un colore TRASPARENTE
+          await StatusBar.setOverlaysWebView({ overlay: true });
+          await StatusBar.setBackgroundColor({ color: '#00000000' }); // 00000000 = Trasparente totale
+        } else {
+          // iOS rimane com'è
+        }
+
+        // Gestione testo scuro/chiaro
+        await StatusBar.setStyle({
+          style: settings.theme === 'dark' ? Style.Dark : Style.Light
+        });
+      } catch (e) {
+        // Ignora errori
+      }
+    };
+    updateStatusBar();
+
     const timer = setTimeout(() => setIsLoading(false), 2500);
     return () => clearTimeout(timer);
   }, [settings.theme]);
-
   useEffect(() => {
     if (showOnboarding || isLoading) {
       document.body.style.overflow = 'hidden';
@@ -334,7 +358,7 @@ export default function App() {
                               // Bloccato SOLO il primo
                               disabled={isFirst}
                               onChange={(e) => handleSegmentChange(idx, 'startTime', e.target.value)}
-                              className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                              className={`appearance-none bg-transparent font-black text-sm outline-none w-[4.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                               style={{ colorScheme: 'light' }}
                             />
                             <span className="text-textMuted text-xs font-bold">➔</span>
@@ -345,7 +369,7 @@ export default function App() {
                               // Bloccato SOLO l'ultimo
                               disabled={isLast}
                               onChange={(e) => handleSegmentChange(idx, 'endTime', e.target.value)}
-                              className={`bg-transparent font-black text-sm outline-none w-[3.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                              className={`appearance-none bg-transparent font-black text-sm outline-none w-[4.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                               style={{ colorScheme: 'light' }}
                             />
                           </div>
@@ -463,7 +487,7 @@ export default function App() {
       <div className="fixed inset-0 z-[200] flex flex-col bg-white overflow-hidden touch-none font-sans">
         <div className="absolute top-[-10%] right-[-20%] w-96 h-96 rounded-full blur-3xl mix-blend-multiply animate-blob opacity-40 bg-primary/20 pointer-events-none" />
         <div className="absolute top-[20%] left-[-10%] w-72 h-72 rounded-full blur-3xl mix-blend-multiply animate-blob animation-delay-2000 opacity-30 bg-secondary/30 pointer-events-none" />
-        <div className="pt-[calc(env(safe-area-inset-top)+2rem)] px-8 pb-4 flex justify-center gap-2 z-10 shrink-0">
+        <div className="pt-[calc(env(safe-area-inset-top)+3rem)] px-8 pb-4 flex justify-center gap-2 z-10 shrink-0">
           {[1, 2, 3, 4].map(s => (
             <div key={s} className={`h-1.5 rounded-full transition-all duration-300 ${onboardingStep === s ? 'w-8 bg-primary' : 'w-2 bg-gray-200'}`} />
           ))}
@@ -519,7 +543,7 @@ export default function App() {
       case 'history':
         return <HistoryView history={history} settings={settings} />;
       case 'settings':
-        return <Settings settings={settings} onSave={handleSaveSettings} />;
+        return <Settings settings={settings} onSave={handleSaveSettings} onBack={() => setActiveView('dashboard')} />;
       default:
         return (
           <Dashboard

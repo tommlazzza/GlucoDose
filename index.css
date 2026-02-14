@@ -85,3 +85,24 @@ canvas:focus {
     touch-action: none !important;
     -ms-touch-action: none !important;
 }
+
+/* PULIZIA TOTALE INPUT TIME */
+/* Nasconde l'icona orologio */
+input[type="time"]::-webkit-calendar-picker-indicator {
+    display: none !important;
+    background: none !important;
+}
+
+/* Nasconde le freccette su/giù (spin buttons) */
+input[type="time"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-outer-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+    display: none !important;
+}
+
+/* Nasconde eventuale pulsante 'X' di cancellazione */
+input[type="time"]::-webkit-clear-button {
+    display: none !important;
+    -webkit-appearance: none !important;
+}
