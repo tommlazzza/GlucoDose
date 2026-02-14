@@ -7,7 +7,7 @@ import { Settings } from './views/Settings';
 import { UserSettings, ViewState, HistoryEntry, FoodItem, InsulinSegment, SelectedFoodItem } from './types';
 import { DEFAULT_SETTINGS, MOCK_HISTORY, MOCK_FOODS } from './constants';
 import { User, Check, Target, Zap, ArrowRight, ChevronLeft, Clock, Plus, Trash2 } from 'lucide-react';
-import img_logo from './src/images/app_icon.png';
+import img_logo from './assets/icon.png';
 
 export default function App() {
   const [activeView, setActiveView] = useState<ViewState>('dashboard');
