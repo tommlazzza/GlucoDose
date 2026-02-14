@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewState, UserSettings } from '../types';
-import { Home, Utensils, History } from 'lucide-react';
+import { Home, Utensils, Activity } from 'lucide-react';
 import { TRANSLATIONS } from '../constants';
 
 interface LayoutProps {
@@ -32,8 +32,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate
         {/* Navigazione */}
         <nav className={`no-print px-6 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] rounded-t-[2rem] shadow-lg grid grid-cols-3 gap-2 z-50 shrink-0 h-auto min-h-[5.5rem] items-center transition-all ${isDark ? 'bg-gray-800 border-t border-white/5' : 'bg-white/95'}`}>
           <NavButton active={activeView === 'dashboard'} onClick={() => onNavigate('dashboard')} icon={<Home size={22} />} label={t.home} isDark={isDark} />
+          <NavButton active={activeView === 'history'} onClick={() => onNavigate('history')} icon={<Activity size={22} />} label={t.monitoring} isDark={isDark} />
           <NavButton active={activeView === 'food'} onClick={() => onNavigate('food')} icon={<Utensils size={22} />} label={t.food} isDark={isDark} />
-          <NavButton active={activeView === 'history'} onClick={() => onNavigate('history')} icon={<History size={22} />} label={t.history} isDark={isDark} />
         </nav>
       </main>
     </div>
