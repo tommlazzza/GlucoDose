@@ -34,13 +34,32 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
 
   // --- CALCOLO IOB (Insulina Attiva) ---
   const iobData = useMemo(() => {
+    const halfRange = 120; // 2 ore prima e 2 ore dopo
     const data = [];
-    for (let offset = -60; offset <= INSULIN_DURATION_MINUTES; offset += 15) {
+
+    // Raccolgo tutti i momenti di iniezione per campionare più finemente intorno a loro
+    const injectionTimes = history
+      .filter(e => e.type === 'bolus')
+      .map(e => new Date(e.timestamp).getTime());
+
+    // Creo i punti temporali con campionamento variabile
+    for (let offset = -halfRange; offset <= halfRange; offset += 5) {
       const timeAtPoint = new Date(now.getTime() + offset * 60000);
+      const currentTime = timeAtPoint.getTime();
+
+      // Aggiungo anche punti molto vicini ai momenti di iniezione per risalite brusche
+      const isNearInjection = injectionTimes.some(injTime => {
+        const diff = Math.abs(currentTime - injTime);
+        return diff < 2 * 60000; // Entro 2 minuti dall'iniezione
+      });
+
       let totalActive = 0;
+
+      // Sommo TUTTI i boli attivi in questo momento
       history.forEach(entry => {
         if (entry.type === 'bolus') {
-          const minutesSinceInjection = (timeAtPoint.getTime() - new Date(entry.timestamp).getTime()) / 60000;
+          const minutesSinceInjection = (currentTime - new Date(entry.timestamp).getTime()) / 60000;
+
           if (minutesSinceInjection >= 0 && minutesSinceInjection < INSULIN_DURATION_MINUTES) {
             const progress = minutesSinceInjection / INSULIN_DURATION_MINUTES;
             const remainingFactor = Math.pow(1 - progress, 2);
@@ -48,17 +67,69 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           }
         }
       });
+
       data.push({
-        time: timeAtPoint.getTime(),
-        displayTime: timeAtPoint.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: currentTime,
+        displayTime: timeAtPoint.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }),
         value: parseFloat(totalActive.toFixed(2)),
-        isFuture: offset > 0
+        isFuture: offset > 0,
+        isNow: offset === 0
       });
     }
-    return data;
+
+    // Aggiungo punti extra subito prima e dopo ogni iniezione per creare il "salto" brusco
+    injectionTimes.forEach(injTime => {
+      const timeRange = now.getTime();
+      if (injTime >= timeRange - halfRange * 60000 && injTime <= timeRange + halfRange * 60000) {
+        // Punto appena prima dell'iniezione (1 secondo prima)
+        const beforeTime = injTime - 1000;
+        let valueBefore = 0;
+        history.forEach(entry => {
+          if (entry.type === 'bolus') {
+            const minutesSince = (beforeTime - new Date(entry.timestamp).getTime()) / 60000;
+            if (minutesSince >= 0 && minutesSince < INSULIN_DURATION_MINUTES) {
+              const progress = minutesSince / INSULIN_DURATION_MINUTES;
+              valueBefore += entry.units * Math.pow(1 - progress, 2);
+            }
+          }
+        });
+
+        // Punto appena dopo l'iniezione (1 secondo dopo)
+        const afterTime = injTime + 1000;
+        let valueAfter = 0;
+        history.forEach(entry => {
+          if (entry.type === 'bolus') {
+            const minutesSince = (afterTime - new Date(entry.timestamp).getTime()) / 60000;
+            if (minutesSince >= 0 && minutesSince < INSULIN_DURATION_MINUTES) {
+              const progress = minutesSince / INSULIN_DURATION_MINUTES;
+              valueAfter += entry.units * Math.pow(1 - progress, 2);
+            }
+          }
+        });
+
+        data.push({
+          time: beforeTime,
+          displayTime: new Date(beforeTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          value: parseFloat(valueBefore.toFixed(2)),
+          isFuture: beforeTime > now.getTime(),
+          isNow: false
+        });
+
+        data.push({
+          time: afterTime,
+          displayTime: new Date(afterTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          value: parseFloat(valueAfter.toFixed(2)),
+          isFuture: afterTime > now.getTime(),
+          isNow: false
+        });
+      }
+    });
+
+    // Ordina per tempo
+    return data.sort((a, b) => a.time - b.time);
   }, [history, now]);
 
-  const currentIOB = iobData.find(d => !d.isFuture && Math.abs(now.getTime() - d.time) < 15 * 60000)?.value || 0;
+  const currentIOB = iobData.find(d => d.isNow)?.value || 0;
 
   // --- DATI GRAFICO GIORNALIERO ---
   const myDayData = useMemo(() => {
@@ -76,14 +147,14 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .map(e => ({
         time: new Date(e.timestamp).getTime(),
-        displayTime: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        displayTime: new Date(e.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }),
         glucose: e.glucose
       }));
   }, [history, now]);
 
   // --- COMPONENTE PALLINO PERSONALIZZATO ---
   const CustomizedDot = (props: any) => {
-    const { cx, cy, payload, r } = props;
+    const { cx, cy, payload } = props;
 
     // Se non c'è dato o posizione, non renderizzare
     if (!cx || !cy || !payload || typeof payload.glucose === 'undefined') return null;
@@ -95,8 +166,8 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
     else if (val > 250) color = AGP_COLORS.ORANGE; // Arancio
     else if (val > 180) color = AGP_COLORS.YELLOW; // Giallo
 
-    // Usa il raggio passato (se è activeDot sarà più grande)
-    const radius = r || 5;
+    // Dimensione fissa più grande
+    const radius = 7;
 
     return (
       <circle
@@ -105,14 +176,15 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
         r={radius}
         fill={color}
         stroke={isDark ? '#1e293b' : '#ffffff'}
-        strokeWidth={2}
-        className="drop-shadow-sm transition-all"
+        strokeWidth={2.5}
+        className="drop-shadow-sm"
+        style={{ pointerEvents: 'none' }}
       />
     );
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return new Date(date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
   return (
@@ -140,7 +212,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             </div>
             <div className={`px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-sm ${isDark ? 'bg-gray-700' : 'bg-appBg'}`}>
               <Clock size={12} className="text-primary" />
-              <span className={`text-[9px] font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className={`text-[9px] font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
             </div>
           </div>
 
@@ -165,11 +237,11 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   content={({ active, payload }) => active && activeTooltipIOB && payload && payload.length ? (
                     <div className={`px-3 py-2 rounded-xl text-[10px] shadow-xl border ${isDark ? 'bg-gray-800 border-white/10 text-white' : 'bg-white border-gray-100 text-textMain'}`}>
                       <p className="font-bold opacity-60 mb-0.5">{payload[0].payload.displayTime}</p>
-                      <p className="text-sm font-extrabold text-primary">{payload[0].payload.value} U</p>
+                      <p className="text-sm font-extrabold text-primary">{payload[0].payload.value.toFixed(1)} U</p>
                     </div>
                   ) : null}
                 />
-                <ReferenceLine x={now.getTime()} stroke={isDark ? '#6B7280' : '#9CA3AF'} strokeDasharray="3 3" />
+                <ReferenceLine x={now.getTime()} stroke={isDark ? '#6B7280' : '#9CA3AF'} strokeDasharray="3 3" strokeWidth={2} />
                 <Area
                   type="monotone"
                   dataKey="value"
@@ -179,6 +251,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   animationDuration={1000}
                   dot={false}
                   activeDot={activeTooltipIOB ? { r: 6, fill: AGP_COLORS.IOB_CURVE, stroke: isDark ? '#1e293b' : '#ffffff', strokeWidth: 2 } : false}
+                  isAnimationActive={true}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -200,6 +273,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           <div className="h-64 w-full touch-none"
             onTouchStart={() => setActiveTooltipGlucose(true)}
             onTouchEnd={() => setActiveTooltipGlucose(false)}
+            onMouseEnter={() => setActiveTooltipGlucose(true)}
             onMouseLeave={() => setActiveTooltipGlucose(false)}
           >
             {myDayData.length > 0 ? (
@@ -211,7 +285,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                     type="number"
                     scale="time"
                     domain={[new Date(now).setHours(0, 0, 0, 0), new Date(now).setHours(23, 59, 59, 999)]}
-                    tickFormatter={(unix) => new Date(unix).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    tickFormatter={(unix) => new Date(unix).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })}
                     tick={{ fontSize: 9, fill: '#9CA3AF', fontWeight: 'bold' }}
                     axisLine={false}
                     tickLine={false}
@@ -230,13 +304,16 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   <ReferenceArea y1={70} y2={180} fill={AGP_COLORS.BG_TARGET_AREA} fillOpacity={AGP_COLORS.TARGET_BG_OPACITY} />
                   <ReferenceLine y={settings.targetBg} stroke={isDark ? '#475569' : '#e2e8f0'} strokeWidth={1} strokeDasharray="3 3" />
 
+                  {/* Linea verticale NOW sincronizzata */}
+                  <ReferenceLine x={now.getTime()} stroke={isDark ? '#6B7280' : '#9CA3AF'} strokeDasharray="3 3" strokeWidth={2} label={{ value: 'Now', position: 'top', fill: isDark ? '#9CA3AF' : '#6B7280', fontSize: 10, fontWeight: 'bold' }} />
+
                   <Line
                     type="monotone"
                     dataKey="glucose"
-                    stroke={isDark ? '#cbd5e1' : '#94a3b8'}
-                    strokeWidth={1.5}
+                    stroke="transparent"
+                    strokeWidth={0}
                     dot={<CustomizedDot />}
-                    activeDot={activeTooltipGlucose ? <CustomizedDot r={8} /> : <CustomizedDot />}
+                    activeDot={activeTooltipGlucose ? <CustomizedDot r={10} /> : false}
                     animationDuration={1500}
                     isAnimationActive={true}
                   />
