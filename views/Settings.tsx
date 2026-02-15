@@ -34,6 +34,7 @@ const InputField = ({ label, value, onChange, isDark, type = "number", placehold
       inputMode={type === "number" ? "decimal" : "text"}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onFocus={(e) => e.target.select()}
       placeholder={placeholder}
       className={`w-full rounded-2xl p-4 font-bold outline-none border-2 border-transparent focus:border-primary transition-all ${isDark ? 'bg-gray-700/50 text-white' : 'bg-appBg text-textMain'}`}
     />
@@ -230,6 +231,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                     const val = e.target.value;
                     handleChange('minGlucoseTarget', val === '' ? undefined : parseFloat(val));
                   }}
+                  onFocus={(e) => e.target.select()}
                   placeholder="70"
                   className={`w-full rounded-2xl p-4 font-bold outline-none border-2 border-transparent focus:border-primary transition-all ${isDark ? 'bg-gray-700/50 text-white placeholder:text-gray-500' : 'bg-appBg text-textMain placeholder:text-textMuted'} placeholder:opacity-40`}
                 />
@@ -244,6 +246,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                     const val = e.target.value;
                     handleChange('maxGlucoseTarget', val === '' ? undefined : parseFloat(val));
                   }}
+                  onFocus={(e) => e.target.select()}
                   placeholder="180"
                   className={`w-full rounded-2xl p-4 font-bold outline-none border-2 border-transparent focus:border-primary transition-all ${isDark ? 'bg-gray-700/50 text-white placeholder:text-gray-500' : 'bg-appBg text-textMain placeholder:text-textMuted'} placeholder:opacity-40`}
                 />
@@ -327,6 +330,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                               inputMode="decimal"
                               value={seg.target}
                               onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))}
+                              onFocus={(e) => e.target.select()}
                               className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
                             />
                           </div>
@@ -339,6 +343,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                               inputMode="decimal"
                               value={seg.isf}
                               onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))}
+                              onFocus={(e) => e.target.select()}
                               className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
                             />
                           </div>
@@ -351,6 +356,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                               inputMode="decimal"
                               value={seg.icr}
                               onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))}
+                              onFocus={(e) => e.target.select()}
                               className={`w-full bg-transparent font-black text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
                             />
                           </div>

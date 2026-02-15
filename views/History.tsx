@@ -287,9 +287,12 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   dataKey="time"
                   type="number"
                   scale="time"
-                  domain={[iobTicks[0], iobTicks[iobTicks.length - 1]]} // Dominio forzato sui ticks
+                  domain={[
+                    iobTicks[0] - (30 * 60 * 1000), // Aggiungi 30 minuti prima di -4h
+                    iobTicks[iobTicks.length - 1] + (30 * 60 * 1000) // Aggiungi 30 minuti dopo +4h
+                  ]}
                   ticks={iobTicks}
-                  padding={{ left: 15, right: 15 }} // PADDING AGGIUNTO PER MOSTRARE -4h e +4h
+                  padding={{ left: 15, right: 15 }}
                   tickFormatter={(unix) => {
                     const diffMs = unix - now.getTime();
                     const diffHrs = Math.round(diffMs / 3600000);
@@ -403,7 +406,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   <Bar
                     yAxisId="insulinAxis"
                     dataKey="units"
-                    barSize={8}
+                    barSize={2.5}
                     fill={AGP_COLORS.INSULIN_BAR}
                     radius={[2, 2, 0, 0]}
                     isAnimationActive={true}
@@ -538,13 +541,15 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                                     {count}
                                   </div>
                                 )}
-                                <div className={`text-xs font-black px-1.5 py-0.5 rounded-md w-full max-w-[45px] text-center shadow-sm ${lastEntry.glucose < minTIR ? 'text-red-600 bg-red-50 border border-red-100'
-                                  : lastEntry.glucose > maxTIR
-                                    ? lastEntry.glucose > 250 ? 'text-orange-600 bg-orange-50 border border-orange-100' : 'text-yellow-600 bg-yellow-50 border border-yellow-100'
-                                    : 'text-green-600 bg-green-50 border border-green-100'
-                                  }`}>
-                                  {lastEntry.glucose}
-                                </div>
+                                {lastEntry.glucose > 0 ? (
+                                  <div className={`text-xs font-black px-1.5 py-0.5 rounded-md w-full max-w-[45px] text-center shadow-sm ${lastEntry.glucose < minTIR ? 'text-red-600 bg-red-50 border border-red-100'
+                                    : lastEntry.glucose > maxTIR
+                                      ? lastEntry.glucose > 250 ? 'text-orange-600 bg-orange-50 border border-orange-100' : 'text-yellow-600 bg-yellow-50 border border-yellow-100'
+                                      : 'text-green-600 bg-green-50 border border-green-100'
+                                    }`}>
+                                    {lastEntry.glucose}
+                                  </div>
+                                ) : null}
                                 {lastEntry.units > 0 && (
                                   <div className={`text-[10px] font-bold px-1 py-0.5 rounded-md w-full max-w-[45px] text-center border ${isDark ? 'bg-blue-900/20 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                                     {lastEntry.units}<span className="text-[8px] ml-0.5 opacity-70">U</span>
@@ -552,7 +557,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                                 )}
                                 {lastEntry.carbs > 0 && (
                                   <div className={`text-[9px] font-bold px-1 py-0.5 rounded-md w-full max-w-[45px] text-center border mt-0.5 ${isDark ? 'bg-blue-900/10 text-blue-300 border-blue-800/50' : 'bg-blue-50/50 text-blue-600 border-blue-100'}`}>
-                                    {lastEntry.carbs}<span className="text-[7px] ml-0.5 opacity-70">cho</span>
+                                    {lastEntry.carbs}<span className="text-[7px] ml-0.5 opacity-70">CHO</span>
                                   </div>
                                 )}
                               </div>
@@ -602,7 +607,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
         <section>
           <div className="flex items-center justify-between mb-4 px-2">
             <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>Diario</h3>
-            {/* MODIFICA: Bottone visibile se > 3 */}
             {history.length > 3 && (
               <button
                 onClick={() => setShowFullHistory(true)}
@@ -613,16 +617,25 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             )}
           </div>
           <div className="flex flex-col gap-3">
-            {recentHistory.length === 0 && <p className="text-center text-textMuted text-xs py-4">Nessun bolo registrato.</p>}
+            {recentHistory.length === 0 && <p className="text-center text-textMuted text-xs py-4">Nessun evento registrato.</p>}
             {recentHistory.map((entry) => (
               <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > maxTIR ? 'bg-orange-100 text-orange-600' : (entry.glucose < minTIR ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
-                    {entry.glucose}
-                  </div>
+                  {/* ICONA: Glicemia colorata o siringa grigia */}
+                  {entry.glucose > 0 ? (
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > maxTIR ? 'bg-orange-100 text-orange-600' : (entry.glucose < minTIR ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                      {entry.glucose}
+                    </div>
+                  ) : (
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                      <Syringe size={20} className={isDark ? 'text-gray-400' : 'text-gray-500'} strokeWidth={2.5} />
+                    </div>
+                  )}
                   <div>
                     <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{formatDate(entry.timestamp)}</p>
-                    <p className="text-[10px] font-bold text-textMuted">{entry.carbs}g Carbo • {entry.mealType}</p>
+                    <p className="text-[10px] font-bold text-textMuted">
+                      {entry.carbs > 0 ? `${entry.carbs}g Carbo • ` : ''}{entry.mealType}
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
@@ -632,7 +645,8 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                     <p className="text-xs font-bold text-gray-400 uppercase py-1">Glicemia</p>
                   )}
 
-                  {entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
+                  {/* NON mostrare "Consigliato" se è solo insulina (glucose === 0) */}
+                  {entry.glucose > 0 && entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider">Cons. {entry.recommendedUnits} U</span>
                       {entry.units > entry.recommendedUnits ? (
@@ -665,12 +679,20 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                 {history.map((entry) => (
                   <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > maxTIR ? 'bg-orange-100 text-orange-600' : (entry.glucose < minTIR ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
-                        {entry.glucose}
-                      </div>
+                      {entry.glucose > 0 ? (
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > maxTIR ? 'bg-orange-100 text-orange-600' : (entry.glucose < minTIR ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                          {entry.glucose}
+                        </div>
+                      ) : (
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                          <Syringe size={20} className={isDark ? 'text-gray-400' : 'text-gray-500'} strokeWidth={2.5} />
+                        </div>
+                      )}
                       <div>
                         <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{formatDate(entry.timestamp)}</p>
-                        <p className="text-[10px] font-bold text-textMuted">{entry.carbs}g Carbo • {entry.mealType}</p>
+                        <p className="text-[10px] font-bold text-textMuted">
+                          {entry.carbs > 0 ? `${entry.carbs}g Carbo • ` : ''}{entry.mealType}
+                        </p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
@@ -680,7 +702,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                         <p className="text-xs font-bold text-gray-400 uppercase py-1">Glicemia</p>
                       )}
 
-                      {entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
+                      {entry.glucose > 0 && entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider">Cons. {entry.recommendedUnits} U</span>
                           {entry.units > entry.recommendedUnits ? (
@@ -807,13 +829,15 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                                       {count}
                                     </div>
                                   )}
-                                  <div className={`text-xs font-black px-1.5 py-0.5 rounded-md w-full max-w-[45px] text-center shadow-sm ${lastEntry.glucose < minTIR ? 'text-red-600 bg-red-50 border border-red-100'
-                                    : lastEntry.glucose > maxTIR
-                                      ? lastEntry.glucose > 250 ? 'text-orange-600 bg-orange-50 border border-orange-100' : 'text-yellow-600 bg-yellow-50 border border-yellow-100'
-                                      : 'text-green-600 bg-green-50 border border-green-100'
-                                    }`}>
-                                    {lastEntry.glucose}
-                                  </div>
+                                  {lastEntry.glucose > 0 ? (
+                                    <div className={`text-xs font-black px-1.5 py-0.5 rounded-md w-full max-w-[45px] text-center shadow-sm ${lastEntry.glucose < minTIR ? 'text-red-600 bg-red-50 border border-red-100'
+                                      : lastEntry.glucose > maxTIR
+                                        ? lastEntry.glucose > 250 ? 'text-orange-600 bg-orange-50 border border-orange-100' : 'text-yellow-600 bg-yellow-50 border border-yellow-100'
+                                        : 'text-green-600 bg-green-50 border border-green-100'
+                                      }`}>
+                                      {lastEntry.glucose}
+                                    </div>
+                                  ) : null}
                                   {lastEntry.units > 0 && (
                                     <div className={`text-[10px] font-bold px-1 py-0.5 rounded-md w-full max-w-[45px] text-center border ${isDark ? 'bg-blue-900/20 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                                       {lastEntry.units}<span className="text-[8px] ml-0.5 opacity-70">U</span>
@@ -898,15 +922,21 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
 
                     {/* Dettagli */}
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-sm font-black ${entry.glucose < minTIR ? 'text-red-500'
-                            : entry.glucose > maxTIR ? 'text-yellow-500' : 'text-green-500'
-                          }`}>
-                          {entry.glucose}
-                        </span>
-                        <span className="text-[10px] text-textMuted font-bold">mg/dL</span>
-                      </div>
-                      {entry.carbs > 0 && <span className="text-[10px] text-textMuted font-medium">{entry.carbs}g CHO</span>}
+                      {entry.glucose > 0 ? (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-sm font-black ${entry.glucose < minTIR ? 'text-red-500'
+                              : entry.glucose > maxTIR ? 'text-yellow-500' : 'text-green-500'
+                              }`}>
+                              {entry.glucose}
+                            </span>
+                            <span className="text-[10px] text-textMuted font-bold">mg/dL</span>
+                          </div>
+                          {entry.carbs > 0 && <span className="text-[10px] text-textMuted font-medium">{entry.carbs}g CHO</span>}
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-textMuted font-bold">Solo Insulina</span>
+                      )}
                     </div>
                   </div>
 

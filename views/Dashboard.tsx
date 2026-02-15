@@ -1,15 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { UserSettings, FoodItem, HistoryEntry, SelectedFoodItem } from '../types';
 import { TRANSLATIONS, CATEGORY_ICONS } from '../constants';
-import { Droplets, Calculator, Plus, Minus, X, Search, Utensils, Check, User, ChevronRight, ChevronLeft, AlertCircle, Syringe, Info, ArrowRight } from 'lucide-react';
+import { Droplets, Calculator, Plus, Minus, X, Search, Utensils, Check, User, ChevronRight, ChevronLeft, AlertCircle, Syringe, Info, ArrowRight, Clock } from 'lucide-react';
 
 interface DashboardProps {
   settings: UserSettings;
   foods: FoodItem[];
   history: HistoryEntry[];
-  onLogDose: (units: number, glucose: number, carbs: number, mealType: string, recommendedUnits?: number) => void;
+  onLogDose: (units: number, glucose: number, carbs: number, mealType: string, recommendedUnits?: number, customTimestamp?: Date) => void;
   onNavigateSettings: () => void;
-  onNavigateHistory: () => void; // ← NUOVA PROP
+  onNavigateHistory: () => void;
   // --- PROPS PER LO STATO PERSISTENTE ---
   glucose: string;
   setGlucose: (value: string) => void;
@@ -25,7 +25,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   history,
   onLogDose,
   onNavigateSettings,
-  onNavigateHistory, // ← AGGIUNGI QUI
+  onNavigateHistory,
   glucose,
   setGlucose,
   selectedFoods,
@@ -38,26 +38,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showResultModal, setShowResultModal] = useState(false);
   const [showExtraCheckModal, setShowExtraCheckModal] = useState(false);
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
+  const [showPastGlucoseModal, setShowPastGlucoseModal] = useState(false);
+  const [showPastInsulinModal, setShowPastInsulinModal] = useState(false);
+
+  // --- STATI GLICEMIA PREGRESSA ---
+  const [pastGlucoseValue, setPastGlucoseValue] = useState<string>('');
+  const [pastGlucoseTime, setPastGlucoseTime] = useState<string>(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - 30);
+    return now.toTimeString().slice(0, 5);
+  });
+
+  // --- STATI INSULINA PREGRESSA ---
+  const [pastInsulinValue, setPastInsulinValue] = useState<number>(0);
+  const [pastInsulinTime, setPastInsulinTime] = useState<string>(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - 30);
+    return now.toTimeString().slice(0, 5);
+  });
 
   // --- STATI AGGIUNTA CIBO (CON FILTRI) ---
   const [foodSearch, setFoodSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all'); // Filtro categoria
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [pendingFood, setPendingFood] = useState<FoodItem | null>(null);
   const [gramsCount, setGramsCount] = useState<number>(100);
 
   // --- STATI CALCOLO ---
   const [extraUnloggedInsulin, setExtraUnloggedInsulin] = useState<number>(0);
   const [extraInsulinTime, setExtraInsulinTime] = useState<string>(() => {
-    // Imposta di default 15 minuti fa
     const now = new Date();
     now.setMinutes(now.getMinutes() - 15);
-    return now.toTimeString().slice(0, 5); // Formato HH:MM
+    return now.toTimeString().slice(0, 5);
   });
   const [finalDose, setFinalDose] = useState<number>(0);
 
   const totalCarbs = Math.round(selectedFoods.reduce((acc, f) => acc + (f.carbsPerServing * f.weight / 100), 0));
 
-  // ULTIMA GLICEMIA VALIDA (ultimi 15 minuti - non più valida dopo 15 minuti)
+  // ULTIMA GLICEMIA VALIDA (ultimi 15 minuti)
   const lastValidGlucose = useMemo(() => {
     const now = new Date();
     const fifteenMinutesAgo = now.getTime() - 15 * 60 * 1000;
@@ -66,7 +83,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       .filter(e => {
         const entryTime = new Date(e.timestamp).getTime();
         const diffMinutes = (now.getTime() - entryTime) / 60000;
-        // Valida solo se: ha glicemia > 0, è negli ultimi 15 minuti, ed è esattamente <= 15 minuti
         return e.glucose > 0 && entryTime >= fifteenMinutesAgo && diffMinutes < 15;
       })
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -133,7 +149,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const calculationDetails = useMemo(() => {
     const { isf, icr, target } = currentInsulinParams;
-    // Usa la glicemia inserita, se non c'è usa l'ultima valida, altrimenti usa il target
     const bg = parseFloat(glucose) || lastValidGlucose?.glucose || target;
     let correction = bg > target ? (bg - target) / isf : 0;
     let mealBolus = totalCarbs > 0 ? totalCarbs / icr : 0;
@@ -159,14 +174,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleCalculateClick = () => {
-    // Controlla se la glicemia inserita è fuori range
     const glucoseValue = parseFloat(glucose);
     if (glucose && (glucoseValue < 20 || glucoseValue > 600)) {
       alert('Attenzione: la glicemia deve essere tra 20 e 600 mg/dL');
       return;
     }
 
-    // Reset orario a 15 minuti fa quando si riapre la modale
     const now = new Date();
     now.setMinutes(now.getMinutes() - 15);
     setExtraInsulinTime(now.toTimeString().slice(0, 5));
@@ -175,16 +188,55 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleQuickLogGlucose = () => {
-    // Registra solo la glicemia senza passare per il calcolo
     const glucoseValue = parseFloat(glucose);
     if (!glucose || glucoseValue < 20 || glucoseValue > 600) {
       alert('Inserisci una glicemia valida (20-600 mg/dL)');
       return;
     }
 
-    // Registra come "Controllo" con 0 carboidrati e 0 unità
     onLogDose(0, glucoseValue, 0, 'Controllo', 0);
     setGlucose('');
+    onNavigateHistory();
+  };
+
+  // SALVA GLICEMIA PREGRESSA
+  const handleSavePastGlucose = () => {
+    const glucoseValue = parseFloat(pastGlucoseValue);
+    if (!pastGlucoseValue || glucoseValue < 20 || glucoseValue > 600) {
+      alert('Inserisci una glicemia valida (20-600 mg/dL)');
+      return;
+    }
+
+    // Crea un timestamp personalizzato con l'orario scelto
+    const now = new Date();
+    const [hours, minutes] = pastGlucoseTime.split(':').map(Number);
+    const customTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+
+    // Registra con timestamp personalizzato
+    onLogDose(0, glucoseValue, 0, 'Controllo', 0, customTimestamp);
+
+    setPastGlucoseValue('');
+    setShowPastGlucoseModal(false);
+    onNavigateHistory();
+  };
+
+  // SALVA INSULINA PREGRESSA
+  const handleSavePastInsulin = () => {
+    if (pastInsulinValue <= 0) {
+      alert('Inserisci una quantità di insulina valida');
+      return;
+    }
+
+    // Crea un timestamp personalizzato con l'orario scelto
+    const now = new Date();
+    const [hours, minutes] = pastInsulinTime.split(':').map(Number);
+    const customTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+
+    // Registra insulina pregressa con timestamp personalizzato
+    onLogDose(pastInsulinValue, 0, 0, 'Insulina', 0, customTimestamp);
+
+    setPastInsulinValue(0);
+    setShowPastInsulinModal(false);
     onNavigateHistory();
   };
 
@@ -195,13 +247,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const confirmLog = () => {
-    // Usa la glicemia inserita, altrimenti quella calcolata
     const glucoseToLog = parseFloat(glucose) || calculationDetails.usedGlucose;
     onLogDose(finalDose, glucoseToLog, totalCarbs, 'Pasto', calculationDetails.recommendedTotal);
     setShowResultModal(false);
     setGlucose('');
     setSelectedFoods([]);
-    onNavigateHistory(); // ← NAVIGA ALLA HISTORY
+    onNavigateHistory();
   };
 
   const adjustFinalDose = (increment: boolean) => {
@@ -209,8 +260,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setFinalDose(prev => Math.max(0, parseFloat((increment ? prev + step : prev - step).toFixed(1))));
   };
 
-  // Il calcolo è sempre possibile se c'è una glicemia (inserita o recente)
-  const isCalculationDisabled = !glucose && !lastValidGlucose;
+  // Il calcolo richiede glicemia (inserita o recente) E almeno un cibo selezionato
+  const isCalculationDisabled = (!glucose && !lastValidGlucose) || selectedFoods.length === 0;
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden">
@@ -229,6 +280,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="flex-1 overflow-y-auto scrolling-touch no-scrollbar px-6 pb-44 min-h-0 w-full">
         <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
 
+          {/* PULSANTI AZIONI RAPIDE */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - 30);
+                setPastGlucoseTime(now.toTimeString().slice(0, 5));
+                setPastGlucoseValue('');
+                setShowPastGlucoseModal(true);
+              }}
+              className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all active:scale-95 ${isDark ? 'bg-gray-800 border-blue-500/60 hover:bg-gray-750 hover:border-blue-500' : 'bg-white border-blue-300 hover:border-blue-400 shadow-sm'}`}
+            >
+              <Droplets size={24} className="text-blue-500" strokeWidth={2.5} />
+              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-textMain'}`}>Glicemia Pregressa</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - 30);
+                setPastInsulinTime(now.toTimeString().slice(0, 5));
+                setPastInsulinValue(0);
+                setShowPastInsulinModal(true);
+              }}
+              className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all active:scale-95 ${isDark ? 'bg-gray-800 border-amber-500/60 hover:bg-gray-750 hover:border-amber-500' : 'bg-white border-amber-300 hover:border-amber-400 shadow-sm'}`}
+            >
+              <Syringe size={24} className="text-primary" strokeWidth={2.5} />
+              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-textMain'}`}>Insulina Pregressa</span>
+            </button>
+          </div>
+
           {/* INPUT GLICEMIA */}
           <div className={`rounded-[2rem] p-6 border-2 transition-all ${isDark ? 'bg-gray-800/40 border-transparent focus-within:border-primary' : 'bg-cardBg border-transparent focus-within:border-primary shadow-sm'}`}>
             <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-textMuted mb-3">
@@ -242,14 +324,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
               value={glucose}
               onChange={(e) => {
                 const value = e.target.value;
-                // Permetti sempre di digitare, il controllo sarà fatto al momento del calcolo
                 setGlucose(value);
               }}
+              onFocus={(e) => e.target.select()}
               className={`w-full text-4xl font-black bg-transparent outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
               placeholder="---"
             />
 
-            {/* Mostra ultima glicemia valida se disponibile e non c'è input */}
             {!glucose && lastValidGlucose && (
               <div className={`mt-3 pt-3 border-t flex items-center justify-between ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                 <div>
@@ -259,12 +340,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </p>
                 </div>
                 <div className={`px-4 py-2 rounded-xl ${lastValidGlucose.glucose < (settings.minGlucoseTarget || 70)
-                    ? 'bg-red-100 text-red-600'
-                    : lastValidGlucose.glucose > (settings.maxGlucoseTarget || 180)
-                      ? lastValidGlucose.glucose > 250
-                        ? 'bg-orange-100 text-orange-600'
-                        : 'bg-yellow-100 text-yellow-600'
-                      : 'bg-green-100 text-green-600'
+                  ? 'bg-red-100 text-red-600'
+                  : lastValidGlucose.glucose > (settings.maxGlucoseTarget || 180)
+                    ? lastValidGlucose.glucose > 250
+                      ? 'bg-orange-100 text-orange-600'
+                      : 'bg-yellow-100 text-yellow-600'
+                    : 'bg-green-100 text-green-600'
                   }`}>
                   <span className="text-2xl font-black">{lastValidGlucose.glucose}</span>
                 </div>
@@ -300,32 +381,140 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* BOTTONI FISSI */}
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] left-0 right-0 px-6 max-w-md mx-auto z-40 pointer-events-none">
-        {/* Mostra solo pulsante "Salva Glicemia" se c'è glicemia ma nessun cibo */}
-        {glucose && selectedFoods.length === 0 ? (
-          <button
-            onClick={handleQuickLogGlucose}
-            className="w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all pointer-events-auto bg-secondary text-gray-900 shadow-secondary/30 active:scale-95"
-          >
-            <Check size={22} strokeWidth={3} /> SALVA GLICEMIA
-          </button>
-        ) : (
-          /* Mostra pulsante "Calcola" se ci sono cibi o glicemia valida */
-          <button
-            onClick={handleCalculateClick}
-            disabled={isCalculationDisabled}
-            className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all pointer-events-auto ${isCalculationDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-70' : 'bg-primary text-gray-900 shadow-primary/30 active:scale-95'}`}
-          >
-            <Calculator size={22} strokeWidth={3} /> {t.calculate.toUpperCase()}
-          </button>
-        )}
+        <button
+          onClick={handleCalculateClick}
+          disabled={isCalculationDisabled}
+          className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all pointer-events-auto ${isCalculationDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-70' : 'bg-primary text-gray-900 shadow-primary/30 active:scale-95'}`}
+        >
+          <Calculator size={22} strokeWidth={3} /> {t.calculate.toUpperCase()}
+        </button>
       </div>
+
+      {/* --- MODALE GLICEMIA PREGRESSA --- */}
+      {showPastGlucoseModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowPastGlucoseModal(false)}></div>
+          <div className={`relative w-full max-w-sm rounded-[3rem] shadow-2xl p-8 flex flex-col items-center text-center ${isDark ? 'bg-gray-900 text-white' : 'bg-white text-textMain'}`}>
+            <button
+              onClick={() => setShowPastGlucoseModal(false)}
+              className={`absolute top-6 right-6 p-2 rounded-full transition-colors ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              <X size={20} />
+            </button>
+
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-gray-800 text-blue-400' : 'bg-blue-100 text-blue-500'}`}>
+              <Droplets size={32} strokeWidth={2.5} />
+            </div>
+            <h3 className="text-xl font-black mb-3">Glicemia Pregressa</h3>
+            <p className="text-sm font-bold text-textMuted mb-6">Registra una misurazione effettuata in precedenza</p>
+
+            {/* ORARIO */}
+            <div className="w-full mb-6">
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Orario misurazione</label>
+              <div className={`w-full p-2.5 rounded-[2rem] ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
+                <input
+                  type="time"
+                  value={pastGlucoseTime}
+                  onChange={(e) => setPastGlucoseTime(e.target.value)}
+                  className={`w-full bg-transparent py-2 px-2 font-bold text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
+                  style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                />
+              </div>
+            </div>
+
+            {/* VALORE GLICEMIA */}
+            <div className="w-full mb-8">
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Valore glicemia (mg/dL)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="20"
+                max="600"
+                value={pastGlucoseValue}
+                onChange={(e) => setPastGlucoseValue(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                className={`w-full text-5xl font-black outline-none text-center p-4 rounded-2xl border-2 transition-all ${isDark ? 'bg-gray-800 text-white border-gray-700 focus:border-blue-500' : 'bg-gray-50 text-textMain border-gray-300 focus:border-blue-500'}`}
+                placeholder="---"
+              />
+            </div>
+
+            <button
+              onClick={handleSavePastGlucose}
+              className="w-full py-5 bg-secondary text-gray-900 font-black rounded-[2rem] text-lg flex items-center justify-center gap-3"
+            >
+              <Check size={24} strokeWidth={3} /> SALVA GLICEMIA
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODALE INSULINA PREGRESSA --- */}
+      {showPastInsulinModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowPastInsulinModal(false)}></div>
+          <div className={`relative w-full max-w-sm rounded-[3rem] shadow-2xl p-8 flex flex-col items-center text-center ${isDark ? 'bg-gray-900 text-white' : 'bg-white text-textMain'}`}>
+            <button
+              onClick={() => setShowPastInsulinModal(false)}
+              className={`absolute top-6 right-6 p-2 rounded-full transition-colors ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              <X size={20} />
+            </button>
+
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-gray-800 text-primary' : 'bg-amber-100 text-primary'}`}>
+              <Syringe size={32} strokeWidth={2.5} />
+            </div>
+            <h3 className="text-xl font-black mb-3">Insulina Pregressa</h3>
+            <p className="text-sm font-bold text-textMuted mb-6">Registra un'iniezione effettuata in precedenza</p>
+
+            {/* ORARIO */}
+            <div className="w-full mb-6">
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Orario iniezione</label>
+              <div className={`w-full p-2.5 rounded-[2rem] ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
+                <input
+                  type="time"
+                  value={pastInsulinTime}
+                  onChange={(e) => setPastInsulinTime(e.target.value)}
+                  className={`w-full bg-transparent py-2 px-2 font-bold text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
+                  style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                />
+              </div>
+            </div>
+
+            {/* QUANTITÀ INSULINA */}
+            <div className="w-full mb-2">
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Unità somministrate</label>
+            </div>
+            <div className={`flex items-center justify-between w-full p-2.5 rounded-[2rem] mb-8 ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
+              <button
+                onClick={() => setPastInsulinValue(Math.max(0, pastInsulinValue - 0.5))}
+                className={`w-14 h-14 rounded-full flex items-center justify-center text-primary shadow-sm ${isDark ? 'bg-gray-700' : 'bg-white'}`}
+              >
+                <Minus size={24} />
+              </button>
+              <span className="text-4xl font-black">{pastInsulinValue}</span>
+              <button
+                onClick={() => setPastInsulinValue(pastInsulinValue + 0.5)}
+                className={`w-14 h-14 rounded-full flex items-center justify-center text-primary shadow-sm ${isDark ? 'bg-gray-700' : 'bg-white'}`}
+              >
+                <Plus size={24} />
+              </button>
+            </div>
+
+            <button
+              onClick={handleSavePastInsulin}
+              className="w-full py-5 bg-primary text-gray-900 font-black rounded-[2rem] text-lg flex items-center justify-center gap-3"
+            >
+              <Check size={24} strokeWidth={3} /> SALVA INSULINA
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* --- MODALE 1: CHECK SICUREZZA (SIRINGA) --- */}
       {showExtraCheckModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowExtraCheckModal(false)}></div>
           <div className={`relative w-full max-w-sm rounded-[3rem] shadow-2xl p-8 flex flex-col items-center text-center ${isDark ? 'bg-gray-900 text-white' : 'bg-white text-textMain'}`}>
-            {/* BOTTONE CHIUDI */}
             <button
               onClick={() => setShowExtraCheckModal(false)}
               className={`absolute top-6 right-6 p-2 rounded-full transition-colors ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}
@@ -339,7 +528,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <h3 className="text-xl font-black mb-3">Controllo Sicurezza</h3>
             <p className="text-sm font-bold text-textMuted mb-6">Insulina non registrata nelle ultime 4 ore?</p>
 
-            {/* CAMPO ORARIO */}
             <div className="w-full mb-6">
               <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Orario iniezione</label>
               <div className={`w-full p-2.5 rounded-[2rem] ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
@@ -353,7 +541,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {/* QUANTITÀ INSULINA */}
             <div className="w-full mb-2">
               <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Unità somministrate</label>
             </div>
@@ -396,7 +583,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <p className="text-[9px] font-black text-primary uppercase tracking-widest mt-4">Calcolato: {calculationDetails.recommendedTotal} U</p>
 
-                {/* Mostra se è stata usata una glicemia precedente */}
                 {!glucose && lastValidGlucose && (
                   <div className={`mt-4 px-4 py-2 rounded-xl inline-block ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
                     <p className="text-[8px] font-black uppercase tracking-widest text-textMuted mb-1">Glicemia usata</p>
@@ -430,20 +616,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsFoodModalOpen(false)}></div>
           <div className={`relative w-full max-w-md h-[85vh] sm:h-[650px] rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden transition-colors ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
 
-            {/* Header Modale */}
             <div className="p-6 pb-2 shrink-0">
               <div className="flex justify-between items-center mb-6 px-2">
                 <h3 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{t.addFood}</h3>
                 <button onClick={() => setIsFoodModalOpen(false)} className="p-2.5 bg-gray-100 rounded-full text-gray-900 transition-transform active:scale-90"><X size={20} strokeWidth={3} /></button>
               </div>
 
-              {/* Ricerca */}
               <div className="relative mb-4">
                 <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" />
                 <input type="text" placeholder={t.search} value={foodSearch} onChange={(e) => setFoodSearch(e.target.value)} className={`w-full rounded-2xl py-4 pl-12 pr-4 font-bold outline-none border-2 border-transparent focus:border-primary transition-all ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-100 text-textMain'}`} />
               </div>
 
-              {/* Filtri Categorie (Scroll orizzontale) */}
               <div className="flex overflow-x-auto no-scrollbar gap-2 -mx-6 px-6 pb-2">
                 {CATEGORIES_LIST.map((cat) => (
                   <button
@@ -461,7 +644,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {/* Lista Alimenti Filtrata */}
             <div className="flex-1 overflow-y-auto p-6 pt-2 gap-3 flex flex-col no-scrollbar">
               {filteredFoods.map(food => (
                 <button key={food.id} onClick={() => { setPendingFood(food); setGramsCount(100); }} className={`flex justify-between items-center p-4 rounded-[1.5rem] border-2 transition-all hover:scale-[1.02] active:scale-98 ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-50 shadow-sm'}`}>
@@ -482,7 +664,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
             </div>
 
-            {/* Sotto-Modale Dettaglio Quantità (Pending Food) */}
             {pendingFood && (
               <div className={`absolute inset-0 z-[70] p-8 flex flex-col transition-all animate-in slide-in-from-right duration-300 ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
                 <div className="flex justify-between items-center mb-10"><button onClick={() => setPendingFood(null)} className="p-2.5 bg-gray-100 rounded-full text-gray-900"><X size={20} strokeWidth={3} /></button><h3 className={`text-xl font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-textMain'}`}>{t.quantity}</h3><div className="w-10"></div></div>
@@ -493,7 +674,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div className="flex items-center gap-8 my-16">
                     <button onClick={() => setGramsCount(Math.max(0, gramsCount - 10))} className={`w-16 h-16 rounded-2xl flex items-center justify-center text-primary border-2 border-primary/20 shadow-sm transition-transform active:scale-90 ${isDark ? 'bg-gray-800' : 'bg-white'}`}><Minus size={28} strokeWidth={3} /></button>
                     <div className="flex flex-col items-center">
-                      <input type="number" value={gramsCount} onChange={(e) => setGramsCount(parseFloat(e.target.value) || 0)} className={`text-6xl font-black bg-transparent w-40 text-center outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
+                      <input type="number" value={gramsCount} onChange={(e) => setGramsCount(parseFloat(e.target.value) || 0)} onFocus={(e) => e.target.select()} className={`text-6xl font-black bg-transparent w-40 text-center outline-none ${isDark ? 'text-white' : 'text-textMain'}`} />
                       <span className="text-[10px] font-black text-textMuted uppercase tracking-[0.3em] mt-2">{t.grams}</span>
                     </div>
                     <button onClick={() => setGramsCount(gramsCount + 10)} className={`w-16 h-16 rounded-2xl flex items-center justify-center text-primary border-2 border-primary/20 shadow-sm transition-transform active:scale-90 ${isDark ? 'bg-gray-800' : 'bg-white'}`}><Plus size={28} strokeWidth={3} /></button>

@@ -114,10 +114,10 @@ export default function App() {
     localStorage.setItem('gluco_dashboard_foods', JSON.stringify(dashboardFoods));
   }, [dashboardFoods]);
 
-  const handleLogDose = (units: number, glucose: number, carbs: number, mealType: string, recommendedUnits?: number) => {
+  const handleLogDose = (units: number, glucose: number, carbs: number, mealType: string, recommendedUnits?: number, customTimestamp?: Date) => {
     const newEntry: HistoryEntry = {
       id: Date.now().toString(),
-      timestamp: new Date(),
+      timestamp: customTimestamp || new Date(),
       glucose,
       carbs,
       units,
@@ -125,7 +125,8 @@ export default function App() {
       type: 'bolus',
       mealType: mealType
     };
-    setHistory(prev => [newEntry, ...prev]);
+    // Aggiungi la nuova entry e riordina per timestamp decrescente (più recente prima)
+    setHistory(prev => [...prev, newEntry].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
   };
 
   const handleAddFood = (food: Omit<FoodItem, 'id'>) => {
@@ -262,6 +263,7 @@ export default function App() {
               type="text"
               value={tempSettings.userName === 'Nome' ? '' : tempSettings.userName}
               onChange={(e) => setTempSettings({ ...tempSettings, userName: e.target.value })}
+              onFocus={(e) => e.target.select()}
               placeholder="nome"
               className="w-full bg-appBg border-2 border-transparent focus:border-primary rounded-[1.8rem] p-5 text-lg font-bold text-textMain outline-none text-center transition-all mb-8 placeholder:opacity-30 placeholder:text-textMain"
             />
@@ -319,6 +321,7 @@ export default function App() {
                       inputMode="decimal"
                       value={tempSettings.targetBg}
                       onChange={(e) => setTempSettings({ ...tempSettings, targetBg: parseFloat(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
                     />
                   </div>
@@ -329,6 +332,7 @@ export default function App() {
                       inputMode="decimal"
                       value={tempSettings.isf}
                       onChange={(e) => setTempSettings({ ...tempSettings, isf: parseFloat(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
                     />
                   </div>
@@ -339,6 +343,7 @@ export default function App() {
                       inputMode="decimal"
                       value={tempSettings.icr}
                       onChange={(e) => setTempSettings({ ...tempSettings, icr: parseFloat(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-white border-2 border-transparent focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-sm"
                     />
                   </div>
@@ -402,6 +407,7 @@ export default function App() {
                                 inputMode="decimal"
                                 value={seg.target}
                                 onChange={(e) => handleSegmentChange(idx, 'target', parseFloat(e.target.value))}
+                                onFocus={(e) => e.target.select()}
                                 className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain"
                               />
                             </div>
@@ -414,6 +420,7 @@ export default function App() {
                                 inputMode="decimal"
                                 value={seg.isf}
                                 onChange={(e) => handleSegmentChange(idx, 'isf', parseFloat(e.target.value))}
+                                onFocus={(e) => e.target.select()}
                                 className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain"
                               />
                             </div>
@@ -426,6 +433,7 @@ export default function App() {
                                 inputMode="decimal"
                                 value={seg.icr}
                                 onChange={(e) => handleSegmentChange(idx, 'icr', parseFloat(e.target.value))}
+                                onFocus={(e) => e.target.select()}
                                 className="w-full bg-transparent font-black text-center text-lg outline-none text-textMain"
                               />
                             </div>
@@ -468,6 +476,7 @@ export default function App() {
                           minGlucoseTarget: val === '' ? undefined : parseFloat(val)
                         });
                       }}
+                      onFocus={(e) => e.target.select()}
                       placeholder="70"
                       className="w-full bg-white border-2 border-gray-300 focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-md focus:shadow-lg transition-all placeholder:text-gray-400 placeholder:opacity-50"
                     />
@@ -485,6 +494,7 @@ export default function App() {
                           maxGlucoseTarget: val === '' ? undefined : parseFloat(val)
                         });
                       }}
+                      onFocus={(e) => e.target.select()}
                       placeholder="180"
                       className="w-full bg-white border-2 border-gray-300 focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-md focus:shadow-lg transition-all placeholder:text-gray-400 placeholder:opacity-50"
                     />
