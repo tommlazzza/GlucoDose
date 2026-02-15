@@ -7,7 +7,7 @@ interface DashboardProps {
   settings: UserSettings;
   foods: FoodItem[];
   history: HistoryEntry[];
-  onLogDose: (units: number, glucose: number, carbs: number, type: 'bolus' | 'basal', recommendedUnits?: number) => void;
+  onLogDose: (units: number, glucose: number, carbs: number, mealType: string, recommendedUnits?: number) => void;
   onNavigateSettings: () => void;
   onNavigateHistory: () => void; // ← NUOVA PROP
   // --- PROPS PER LO STATO PERSISTENTE ---
@@ -47,7 +47,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // --- STATI CALCOLO ---
   const [extraUnloggedInsulin, setExtraUnloggedInsulin] = useState<number>(0);
-  const [extraInsulinTime, setExtraInsulinTime] = useState<string>('');
+  const [extraInsulinTime, setExtraInsulinTime] = useState<string>(() => {
+    // Imposta di default 15 minuti fa
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - 15);
+    return now.toTimeString().slice(0, 5); // Formato HH:MM
+  });
   const [finalDose, setFinalDose] = useState<number>(0);
 
   const totalCarbs = Math.round(selectedFoods.reduce((acc, f) => acc + (f.carbsPerServing * f.weight / 100), 0));
@@ -161,9 +166,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return;
     }
 
+    // Reset orario a 15 minuti fa quando si riapre la modale
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - 15);
+    setExtraInsulinTime(now.toTimeString().slice(0, 5));
     setExtraUnloggedInsulin(0);
-    setExtraInsulinTime('');
     setShowExtraCheckModal(true);
+  };
+
+  const handleQuickLogGlucose = () => {
+    // Registra solo la glicemia senza passare per il calcolo
+    const glucoseValue = parseFloat(glucose);
+    if (!glucose || glucoseValue < 20 || glucoseValue > 600) {
+      alert('Inserisci una glicemia valida (20-600 mg/dL)');
+      return;
+    }
+
+    // Registra come "Controllo" con 0 carboidrati e 0 unità
+    onLogDose(0, glucoseValue, 0, 'Controllo', 0);
+    setGlucose('');
+    onNavigateHistory();
   };
 
   const handleConfirmExtraCheck = () => {
@@ -175,7 +197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const confirmLog = () => {
     // Usa la glicemia inserita, altrimenti quella calcolata
     const glucoseToLog = parseFloat(glucose) || calculationDetails.usedGlucose;
-    onLogDose(finalDose, glucoseToLog, totalCarbs, 'bolus', calculationDetails.recommendedTotal);
+    onLogDose(finalDose, glucoseToLog, totalCarbs, 'Pasto', calculationDetails.recommendedTotal);
     setShowResultModal(false);
     setGlucose('');
     setSelectedFoods([]);
@@ -187,7 +209,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setFinalDose(prev => Math.max(0, parseFloat((increment ? prev + step : prev - step).toFixed(1))));
   };
 
-  // Il calcolo è possibile se: c'è una glicemia inserita OPPURE c'è una glicemia valida recente
+  // Il calcolo è sempre possibile se c'è una glicemia (inserita o recente)
   const isCalculationDisabled = !glucose && !lastValidGlucose;
 
   return (
@@ -236,8 +258,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {new Date(lastValidGlucose.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })}
                   </p>
                 </div>
-                <div className={`px-4 py-2 rounded-xl ${isDark ? 'bg-primary/20' : 'bg-secondary/20'}`}>
-                  <span className="text-2xl font-black text-primary">{lastValidGlucose.glucose}</span>
+                <div className={`px-4 py-2 rounded-xl ${lastValidGlucose.glucose < (settings.minGlucoseTarget || 70)
+                    ? 'bg-red-100 text-red-600'
+                    : lastValidGlucose.glucose > (settings.maxGlucoseTarget || 180)
+                      ? lastValidGlucose.glucose > 250
+                        ? 'bg-orange-100 text-orange-600'
+                        : 'bg-yellow-100 text-yellow-600'
+                      : 'bg-green-100 text-green-600'
+                  }`}>
+                  <span className="text-2xl font-black">{lastValidGlucose.glucose}</span>
                 </div>
               </div>
             )}
@@ -269,11 +298,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* BOTTONE FISSO CALCOLA */}
+      {/* BOTTONI FISSI */}
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] left-0 right-0 px-6 max-w-md mx-auto z-40 pointer-events-none">
-        <button onClick={handleCalculateClick} disabled={isCalculationDisabled} className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all pointer-events-auto ${isCalculationDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-70' : 'bg-primary text-gray-900 shadow-primary/30 active:scale-95'}`}>
-          <Calculator size={22} strokeWidth={3} /> {t.calculate.toUpperCase()}
-        </button>
+        {/* Mostra solo pulsante "Salva Glicemia" se c'è glicemia ma nessun cibo */}
+        {glucose && selectedFoods.length === 0 ? (
+          <button
+            onClick={handleQuickLogGlucose}
+            className="w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all pointer-events-auto bg-secondary text-gray-900 shadow-secondary/30 active:scale-95"
+          >
+            <Check size={22} strokeWidth={3} /> SALVA GLICEMIA
+          </button>
+        ) : (
+          /* Mostra pulsante "Calcola" se ci sono cibi o glicemia valida */
+          <button
+            onClick={handleCalculateClick}
+            disabled={isCalculationDisabled}
+            className={`w-full py-5 rounded-[2.2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all pointer-events-auto ${isCalculationDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-70' : 'bg-primary text-gray-900 shadow-primary/30 active:scale-95'}`}
+          >
+            <Calculator size={22} strokeWidth={3} /> {t.calculate.toUpperCase()}
+          </button>
+        )}
       </div>
 
       {/* --- MODALE 1: CHECK SICUREZZA (SIRINGA) --- */}

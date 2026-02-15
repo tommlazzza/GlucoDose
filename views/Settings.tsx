@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserSettings, InsulinSegment } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Save, Check, User, Moon, Sun, Zap, Ruler, Plus, Trash2, Clock, Download, Upload, RotateCcw, HardDrive, ChevronLeft } from 'lucide-react';
+import { Save, Check, User, Moon, Sun, Zap, Ruler, Plus, Trash2, Clock, Download, Upload, RotateCcw, HardDrive, ChevronLeft, Target } from 'lucide-react';
 import { exportAllData, importAllData, clearAllData, getStorageSize } from '../storageUtils';
 
 interface SettingsProps {
@@ -144,7 +144,13 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
   };
 
   const handleSave = () => {
-    onSave(localSettings);
+    // Imposta valori di default per TIR se non inseriti
+    const finalSettings = {
+      ...localSettings,
+      minGlucoseTarget: localSettings.minGlucoseTarget ?? 70,
+      maxGlucoseTarget: localSettings.maxGlucoseTarget ?? 180,
+    };
+    onSave(finalSettings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -208,6 +214,43 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
             <InputField label="Nome Utente" value={localSettings.userName} onChange={(val) => handleChange('userName', val)} type="text" placeholder="Il tuo nome" isDark={isDark} />
           </Card>
 
+          {/* CARD RANGE GLICEMICO */}
+          <Card title="Range Glicemico" icon={<Target size={20} />} colorClass="bg-green-100 text-green-500" isDark={isDark}>
+            <p className="text-[10px] font-bold text-textMuted mb-4 leading-relaxed">
+              Imposta i valori min e max per la fascia verde nel grafico glicemico. Tipicamente 70-180 mg/dL.
+            </p>
+            <div className="flex gap-3">
+              <div className="flex flex-col gap-2 flex-1">
+                <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>MIN (mg/dL)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={localSettings.minGlucoseTarget ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    handleChange('minGlucoseTarget', val === '' ? undefined : parseFloat(val));
+                  }}
+                  placeholder="70"
+                  className={`w-full rounded-2xl p-4 font-bold outline-none border-2 border-transparent focus:border-primary transition-all ${isDark ? 'bg-gray-700/50 text-white placeholder:text-gray-500' : 'bg-appBg text-textMain placeholder:text-textMuted'} placeholder:opacity-40`}
+                />
+              </div>
+              <div className="flex flex-col gap-2 flex-1">
+                <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>MAX (mg/dL)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={localSettings.maxGlucoseTarget ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    handleChange('maxGlucoseTarget', val === '' ? undefined : parseFloat(val));
+                  }}
+                  placeholder="180"
+                  className={`w-full rounded-2xl p-4 font-bold outline-none border-2 border-transparent focus:border-primary transition-all ${isDark ? 'bg-gray-700/50 text-white placeholder:text-gray-500' : 'bg-appBg text-textMain placeholder:text-textMuted'} placeholder:opacity-40`}
+                />
+              </div>
+            </div>
+          </Card>
+
           <Card
             title={t.variableInsulin}
             icon={<Zap size={20} />}
@@ -239,11 +282,11 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                   const isLast = idx === localSettings.insulinSegments.length - 1;
 
                   return (
-                    <div key={idx} className={`p-4 rounded-3xl flex flex-col gap-3 transition-all ${isDark ? 'bg-gray-700/30 hover:bg-gray-700/50' : 'bg-appBg border border-gray-100 hover:border-primary/20 hover:shadow-sm'}`}>
+                    <div key={idx} className={`p-4 rounded-3xl flex flex-col gap-3 transition-all border ${isDark ? 'bg-gray-700/50 border-gray-600/30 hover:bg-gray-700/70 hover:border-gray-500/50' : 'bg-appBg border-gray-200 hover:border-primary/30 hover:shadow-md'}`}>
 
-                      <div className="flex justify-between items-center pb-2 border-b border-gray-500/10">
+                      <div className={`flex justify-between items-center pb-2 border-b ${isDark ? 'border-gray-600/30' : 'border-gray-500/10'}`}>
                         <div className="flex items-center gap-2">
-                          <Clock size={14} className="text-textMuted" />
+                          <Clock size={14} className={isDark ? 'text-gray-400' : 'text-textMuted'} />
                           <input
                             type="time"
                             value={seg.startTime}
@@ -252,7 +295,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                             className={`appearance-none bg-transparent font-black text-sm outline-none w-[4.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isDark ? 'text-white' : 'text-textMain'}`}
                             style={{ colorScheme: isDark ? 'dark' : 'light' }}
                           />
-                          <span className="text-textMuted text-xs font-bold">➔</span>
+                          <span className={`text-xs font-bold ${isDark ? 'text-gray-500' : 'text-textMuted'}`}>➔</span>
                           <input
                             type="time"
                             value={seg.endTime}
@@ -264,12 +307,12 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                         </div>
 
                         {!isLast && localSettings.insulinSegments.length > 1 && (
-                          <button onClick={() => handleRemoveSegment(idx)} className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 active:scale-90 transition-all">
+                          <button onClick={() => handleRemoveSegment(idx)} className={`w-7 h-7 flex items-center justify-center rounded-full transition-all active:scale-90 ${isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}>
                             <Trash2 size={14} />
                           </button>
                         )}
                         {isLast && localSettings.insulinSegments.length > 1 && (
-                          <button onClick={() => handleRemoveSegment(idx)} className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 active:scale-90 transition-all">
+                          <button onClick={() => handleRemoveSegment(idx)} className={`w-7 h-7 flex items-center justify-center rounded-full transition-all active:scale-90 ${isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}>
                             <Trash2 size={14} />
                           </button>
                         )}
@@ -277,8 +320,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
 
                       <div className="flex gap-2 items-end">
                         <div className="flex-1">
-                          <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">TARGET</label>
-                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+                          <label className={`text-[9px] font-black uppercase block text-center mb-1 ${isDark ? 'text-gray-500' : 'text-textMuted'}`}>TARGET</label>
+                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800/70' : 'bg-white shadow-sm'}`}>
                             <input
                               type="number"
                               inputMode="decimal"
@@ -289,8 +332,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                           </div>
                         </div>
                         <div className="flex-1">
-                          <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ISF</label>
-                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+                          <label className={`text-[9px] font-black uppercase block text-center mb-1 ${isDark ? 'text-gray-500' : 'text-textMuted'}`}>ISF</label>
+                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800/70' : 'bg-white shadow-sm'}`}>
                             <input
                               type="number"
                               inputMode="decimal"
@@ -301,8 +344,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                           </div>
                         </div>
                         <div className="flex-1">
-                          <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ICR</label>
-                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+                          <label className={`text-[9px] font-black uppercase block text-center mb-1 ${isDark ? 'text-gray-500' : 'text-textMuted'}`}>ICR</label>
+                          <div className={`rounded-xl p-2 ${isDark ? 'bg-gray-800/70' : 'bg-white shadow-sm'}`}>
                             <input
                               type="number"
                               inputMode="decimal"

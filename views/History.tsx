@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { HistoryEntry, UserSettings } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { AreaChart, Area, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, ReferenceArea } from 'recharts';
+import { AreaChart, Area, ComposedChart, Line, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, ReferenceArea } from 'recharts';
 import { Activity, Clock, Syringe, ArrowUp, ArrowDown, ChevronRight, X } from 'lucide-react';
 
 interface HistoryProps {
@@ -17,7 +17,8 @@ const AGP_COLORS = {
   ORANGE: '#f97316',  // Arancio
   BG_TARGET_AREA: '#abe7b2',
   TARGET_BG_OPACITY: 0.15,
-  IOB_CURVE: '#93BFC7'
+  IOB_CURVE: '#93BFC7',
+  INSULIN_BAR: '#3b82f6' // Blu per le barre insulina
 };
 
 export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
@@ -26,6 +27,14 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
   const [now, setNow] = useState(new Date());
   const [activeTooltipIOB, setActiveTooltipIOB] = useState(false);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [showFullMealAnalysis, setShowFullMealAnalysis] = useState(false);
+
+  // Stato per il popup di dettaglio della fascia oraria
+  const [selectedSlot, setSelectedSlot] = useState<{ date: string, label: string, entries: HistoryEntry[] } | null>(null);
+
+  // Valori TIR personalizzati
+  const minTIR = settings.minGlucoseTarget || 70;
+  const maxTIR = settings.maxGlucoseTarget || 180;
 
   // Aggiorna now ogni minuto per ricalcolare IOB
   useEffect(() => {
@@ -37,28 +46,20 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
 
   // --- CALCOLO IOB (Insulina Attiva) ---
   const iobData = useMemo(() => {
-    const halfRange = 120; // 2 ore prima e 2 ore dopo
+    // Range esteso a 4 ore (240 minuti) prima e dopo
+    const halfRange = 240;
     const data = [];
 
-    // Raccolgo tutti i momenti di iniezione per campionare più finemente intorno a loro
     const injectionTimes = history
       .filter(e => e.type === 'bolus')
       .map(e => new Date(e.timestamp).getTime());
 
-    // Creo i punti temporali con campionamento variabile
     for (let offset = -halfRange; offset <= halfRange; offset += 5) {
       const timeAtPoint = new Date(now.getTime() + offset * 60000);
       const currentTime = timeAtPoint.getTime();
 
-      // Aggiungo anche punti molto vicini ai momenti di iniezione per risalite brusche
-      const isNearInjection = injectionTimes.some(injTime => {
-        const diff = Math.abs(currentTime - injTime);
-        return diff < 2 * 60000; // Entro 2 minuti dall'iniezione
-      });
-
       let totalActive = 0;
 
-      // Sommo TUTTI i boli attivi in questo momento
       history.forEach(entry => {
         if (entry.type === 'bolus') {
           const minutesSinceInjection = (currentTime - new Date(entry.timestamp).getTime()) / 60000;
@@ -80,11 +81,11 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
       });
     }
 
-    // Aggiungo punti extra subito prima e dopo ogni iniezione per creare il "salto" brusco
+    // Punti extra per precisione sui picchi
     injectionTimes.forEach(injTime => {
       const timeRange = now.getTime();
       if (injTime >= timeRange - halfRange * 60000 && injTime <= timeRange + halfRange * 60000) {
-        // Punto appena prima dell'iniezione (1 secondo prima)
+        // Punto appena prima
         const beforeTime = injTime - 1000;
         let valueBefore = 0;
         history.forEach(entry => {
@@ -97,7 +98,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           }
         });
 
-        // Punto appena dopo l'iniezione (1 secondo dopo)
+        // Punto appena dopo
         const afterTime = injTime + 1000;
         let valueAfter = 0;
         history.forEach(entry => {
@@ -128,55 +129,96 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
       }
     });
 
-    // Ordina per tempo
     return data.sort((a, b) => a.time - b.time);
   }, [history, now]);
 
   const currentIOB = iobData.find(d => d.isNow)?.value || 0;
 
+  // Calcolo Ticks per asse X IOB (-4h, -2h, Now, +2h, +4h)
+  const iobTicks = useMemo(() => {
+    const ticks = [];
+    const nowTime = now.getTime();
+    ticks.push(nowTime - 4 * 60 * 60 * 1000); // -4h
+    ticks.push(nowTime - 2 * 60 * 60 * 1000); // -2h
+    ticks.push(nowTime);                      // Now
+    ticks.push(nowTime + 2 * 60 * 60 * 1000); // +2h
+    ticks.push(nowTime + 4 * 60 * 60 * 1000); // +4h
+    return ticks;
+  }, [now]);
+
   // --- DATI GRAFICO GIORNALIERO ---
   const myDayData = useMemo(() => {
-    const today = new Date(now); today.setHours(0, 0, 0, 0);
-    const startOfDay = today.getTime();
-    const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const startOfDay = todayStart.getTime();
 
-    // Ordiniamo per orario per evitare linee che tornano indietro
-    // Filtriamo solo valori > 0
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+    const endOfDay = todayEnd.getTime();
+
     return history
       .filter(e => {
         const t = new Date(e.timestamp).getTime();
-        return t >= startOfDay && t <= endOfDay && e.glucose > 0;
+        return t >= startOfDay && t <= endOfDay && (e.glucose > 0 || e.units > 0);
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .map(e => ({
         time: new Date(e.timestamp).getTime(),
         displayTime: new Date(e.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        glucose: e.glucose
+        glucose: e.glucose > 0 ? e.glucose : null,
+        units: e.units > 0 ? e.units : null
       }));
   }, [history, now]);
+
+  // Calcolo Ticks per asse X Glicemia (Ogni 4 ore)
+  const glucoseTicks = useMemo(() => {
+    const ticks = [];
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    for (let i = 0; i <= 24; i += 4) {
+      ticks.push(start.getTime() + i * 3600000);
+    }
+    return ticks;
+  }, [now]);
+
+  // Calcola il domain dinamico dell'asse Y (Solo per Glicemia)
+  const yAxisDomain = useMemo(() => {
+    const glucoseValues = myDayData.map(d => d.glucose).filter(v => v !== null) as number[];
+
+    if (glucoseValues.length === 0) {
+      const tirMargin = (maxTIR - minTIR) * 0.15;
+      return [
+        Math.max(20, Math.floor(minTIR - tirMargin)),
+        Math.min(600, Math.ceil(maxTIR + tirMargin))
+      ];
+    }
+    const minGlucose = Math.min(...glucoseValues);
+    const maxGlucose = Math.max(...glucoseValues);
+    const dataMin = Math.min(minGlucose, minTIR);
+    const dataMax = Math.max(maxGlucose, maxTIR);
+    const range = dataMax - dataMin;
+    const margin = range * 0.1;
+    const yMin = Math.max(20, Math.floor(dataMin - margin));
+    const yMax = Math.min(600, Math.ceil(dataMax + margin));
+    return [yMin, yMax];
+  }, [myDayData, minTIR, maxTIR]);
 
   // --- COMPONENTE PALLINO PERSONALIZZATO ---
   const CustomizedDot = (props: any) => {
     const { cx, cy, payload } = props;
-
-    // Se non c'è dato o posizione, non renderizzare
-    if (!cx || !cy || !payload || typeof payload.glucose === 'undefined') return null;
+    if (!cx || !cy || !payload || typeof payload.glucose !== 'number') return null;
 
     const val = payload.glucose;
-    let color = AGP_COLORS.TARGET; // Verde default
-
-    if (val < 70) color = AGP_COLORS.LOW;       // Rosso
-    else if (val > 250) color = AGP_COLORS.ORANGE; // Arancio
-    else if (val > 180) color = AGP_COLORS.YELLOW; // Giallo
-
-    // Dimensione fissa più grande
-    const radius = 5;
+    let color = AGP_COLORS.TARGET;
+    if (val < minTIR) color = AGP_COLORS.LOW;
+    else if (val > 250) color = AGP_COLORS.ORANGE;
+    else if (val > maxTIR) color = AGP_COLORS.YELLOW;
 
     return (
       <circle
         cx={cx}
         cy={cy}
-        r={radius}
+        r={5}
         fill={color}
         stroke={isDark ? '#1e293b' : '#ffffff'}
         strokeWidth={2.5}
@@ -190,8 +232,13 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
     return new Date(date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  // Mostra solo ultimi 3 boli
   const recentHistory = history.slice(0, 3);
+
+  // Limiti asse X per grafico glicemia
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar">
@@ -222,7 +269,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             </div>
           </div>
 
-          <div className="h-32 w-full touch-none"
+          <div className="h-24 w-full touch-none"
             onTouchStart={() => setActiveTooltipIOB(true)}
             onTouchEnd={() => setActiveTooltipIOB(false)}
             onMouseEnter={() => setActiveTooltipIOB(true)}
@@ -236,11 +283,27 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                     <stop offset="95%" stopColor={AGP_COLORS.IOB_CURVE} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} hide />
+                <XAxis
+                  dataKey="time"
+                  type="number"
+                  scale="time"
+                  domain={[iobTicks[0], iobTicks[iobTicks.length - 1]]} // Dominio forzato sui ticks
+                  ticks={iobTicks}
+                  padding={{ left: 15, right: 15 }} // PADDING AGGIUNTO PER MOSTRARE -4h e +4h
+                  tickFormatter={(unix) => {
+                    const diffMs = unix - now.getTime();
+                    const diffHrs = Math.round(diffMs / 3600000);
+                    if (Math.abs(diffMs) < 60000) return 'Now';
+                    return diffHrs > 0 ? `+${diffHrs}h` : `${diffHrs}h`;
+                  }}
+                  tick={{ fontSize: 9, fill: '#9CA3AF', fontWeight: 'bold' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis hide domain={[0, 'auto']} />
                 <Tooltip
                   active={activeTooltipIOB}
-                  animationDuration={100} // Ridotto da 400 a 100 per più fluidità DA VALUTARE DI CAMBIARE
+                  animationDuration={100}
                   animationEasing="ease-out"
                   cursor={activeTooltipIOB ? { stroke: isDark ? '#ffffff40' : '#00000040', strokeWidth: 2, strokeDasharray: '5 5' } : false}
                   content={({ active, payload }) => active && activeTooltipIOB && payload && payload.length ? (
@@ -267,7 +330,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           </div>
         </section>
 
-        {/* GRAFICO GLUCOSIO */}
+        {/* GRAFICO GLUCOSIO + INSULINA */}
         <section className={`rounded-[2.5rem] p-6 shadow-soft border transition-colors ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-white/60'}`}>
           <div className="flex justify-between items-center mb-6">
             <div className="flex flex-col">
@@ -282,36 +345,72 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           <div className="h-64 w-full" style={{ pointerEvents: 'none' }}>
             {myDayData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={myDayData} margin={{ top: 20, right: 20, left: -20, bottom: 5 }}>
+                <ComposedChart data={myDayData} margin={{ top: 20, right: 20, left: -20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#f3f4f6'} />
+
                   <XAxis
                     dataKey="time"
                     type="number"
                     scale="time"
-                    domain={[new Date(now).setHours(0, 0, 0, 0), new Date(now).setHours(23, 59, 59, 999)]}
+                    domain={[startOfToday.getTime(), endOfToday.getTime()]}
+                    ticks={glucoseTicks}
                     tickFormatter={(unix) => new Date(unix).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })}
                     tick={{ fontSize: 9, fill: '#9CA3AF', fontWeight: 'bold' }}
                     axisLine={false}
                     tickLine={false}
-                    minTickGap={30}
+                    minTickGap={10}
                   />
+
                   <YAxis
+                    yAxisId="glucoseAxis"
                     type="number"
-                    domain={[20, 600]}
-                    allowDataOverflow={true}
+                    domain={yAxisDomain}
+                    allowDataOverflow={false}
                     tick={{ fontSize: 10, fill: '#9CA3AF' }}
                     axisLine={false}
                     tickLine={false}
                     width={45}
                   />
-                  {/* @ts-ignore */}
-                  <ReferenceArea y1={70} y2={180} fill={AGP_COLORS.BG_TARGET_AREA} fillOpacity={AGP_COLORS.TARGET_BG_OPACITY} />
-                  <ReferenceLine y={settings.targetBg} stroke={isDark ? '#475569' : '#e2e8f0'} strokeWidth={1} strokeDasharray="3 3" />
 
-                  {/* Linea verticale NOW sincronizzata */}
+                  <YAxis
+                    yAxisId="insulinAxis"
+                    orientation="right"
+                    domain={[0, 20]}
+                    hide
+                  />
+
+                  <ReferenceArea
+                    yAxisId="glucoseAxis"
+                    y1={minTIR}
+                    y2={maxTIR}
+                    shape={(props: any) => {
+                      const { x, y, width, height } = props;
+                      return (
+                        <rect
+                          x={x}
+                          y={y}
+                          width={width}
+                          height={height}
+                          fill={AGP_COLORS.BG_TARGET_AREA}
+                          opacity={AGP_COLORS.TARGET_BG_OPACITY}
+                        />
+                      );
+                    }}
+                  />
+                  <ReferenceLine yAxisId="glucoseAxis" y={settings.targetBg} stroke={isDark ? '#475569' : '#e2e8f0'} strokeWidth={1} strokeDasharray="3 3" />
                   <ReferenceLine x={now.getTime()} stroke={isDark ? '#6B7280' : '#9CA3AF'} strokeDasharray="3 3" strokeWidth={2} label={{ value: 'Now', position: 'top', fill: isDark ? '#9CA3AF' : '#6B7280', fontSize: 10, fontWeight: 'bold' }} />
 
+                  <Bar
+                    yAxisId="insulinAxis"
+                    dataKey="units"
+                    barSize={8}
+                    fill={AGP_COLORS.INSULIN_BAR}
+                    radius={[2, 2, 0, 0]}
+                    isAnimationActive={true}
+                  />
+
                   <Line
+                    yAxisId="glucoseAxis"
                     type="monotone"
                     dataKey="glucose"
                     stroke="transparent"
@@ -321,7 +420,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                     animationDuration={1500}
                     isAnimationActive={true}
                   />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center px-6">
@@ -333,16 +432,183 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           </div>
         </section>
 
-        {/* --- STORICO DETTAGLIATO (Ultimi 5) --- */}
+        {/* --- TABELLA ANALISI PASTI (HOME) --- */}
         <section>
           <div className="flex items-center justify-between mb-4 px-2">
-            <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>Diario Boli</h3>
-            {history.length > 5 && (
+            <div>
+              <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>Analisi Pasti</h3>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-textMuted">Glicemie e Unità per fascia oraria</p>
+            </div>
+            <button
+              onClick={() => setShowFullMealAnalysis(true)}
+              className={`text-xs font-black uppercase tracking-wider flex items-center gap-1 ${isDark ? 'text-primary' : 'text-primary'}`}
+            >
+              Altro <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto -mx-6 px-6">
+            <div className={`inline-block min-w-full rounded-2xl overflow-hidden border ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100'}`}>
+              <table className="w-full">
+                <thead>
+                  <tr className={isDark ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                    <th className={`sticky left-0 z-10 px-2 py-2 text-left text-[9px] font-black uppercase tracking-wider ${isDark ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
+                      Data
+                    </th>
+                    {settings.variableInsulinEnabled ? (
+                      settings.insulinSegments.map((segment, idx) => (
+                        <th key={idx} className="px-1 py-2 text-center min-w-[50px]">
+                          <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
+                            <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {segment.startTime.slice(0, 5)}
+                            </span>
+                            <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {segment.endTime.slice(0, 5)}
+                            </span>
+                          </div>
+                        </th>
+                      ))
+                    ) : (
+                      <>
+                        {[['06:00', '11:00'], ['11:00', '17:00'], ['17:00', '23:59']].map((range, i) => (
+                          <th key={i} className="px-1 py-2 text-center min-w-[50px]">
+                            <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
+                              <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{range[0]}</span>
+                              <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{range[1]}</span>
+                            </div>
+                          </th>
+                        ))}
+                      </>
+                    )}
+                    <th className={`px-2 py-2 text-center text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span>TOT U</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200/20">
+                  {(() => {
+                    const last3Days = Array.from({ length: 3 }, (_, i) => {
+                      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0); return d;
+                    });
+
+                    return last3Days.map((date, dateIdx) => {
+                      const dateKey = date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+                      const dayEntries = history.filter(e => {
+                        const entryDate = new Date(e.timestamp);
+                        entryDate.setHours(0, 0, 0, 0);
+                        return entryDate.getTime() === date.getTime();
+                      });
+
+                      const totalDailyUnits = dayEntries.reduce((sum, e) => sum + (e.units || 0), 0);
+                      if (dayEntries.length === 0 && dateIdx > 0) return null;
+
+                      const getEntriesInTimeSlot = (startTime: string, endTime: string) => {
+                        return dayEntries.filter(e => {
+                          const entryTime = new Date(e.timestamp);
+                          const entryMinutes = entryTime.getHours() * 60 + entryTime.getMinutes();
+                          const [startH, startM] = startTime.split(':').map(Number);
+                          const [endH, endM] = endTime.split(':').map(Number);
+                          const startMinutes = startH * 60 + startM;
+                          let endMinutes = endH * 60 + endM;
+                          if (endMinutes === 1439) endMinutes = 1440;
+                          return entryMinutes >= startMinutes && entryMinutes < endMinutes;
+                        });
+                      };
+
+                      const renderCell = (startTime: string, endTime: string, label: string) => {
+                        const entries = getEntriesInTimeSlot(startTime, endTime);
+                        const lastEntry = entries[entries.length - 1];
+                        const count = entries.length;
+
+                        return (
+                          <td
+                            className={`px-1 py-2 align-top h-full relative ${count > 0 ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+                            onClick={() => {
+                              if (count > 0) {
+                                setSelectedSlot({ date: dateKey, label: label, entries: entries });
+                              }
+                            }}
+                          >
+                            {lastEntry ? (
+                              <div className={`flex flex-col gap-1 justify-start items-center h-full min-h-[45px] p-1 rounded-lg ${count > 1 ? (isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100/50 border border-gray-200/50') : ''}`}>
+                                {count > 1 && (
+                                  <div className="absolute top-0 right-0 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[7px] font-bold text-white shadow-sm ring-1 ring-white">
+                                    {count}
+                                  </div>
+                                )}
+                                <div className={`text-xs font-black px-1.5 py-0.5 rounded-md w-full max-w-[45px] text-center shadow-sm ${lastEntry.glucose < minTIR ? 'text-red-600 bg-red-50 border border-red-100'
+                                  : lastEntry.glucose > maxTIR
+                                    ? lastEntry.glucose > 250 ? 'text-orange-600 bg-orange-50 border border-orange-100' : 'text-yellow-600 bg-yellow-50 border border-yellow-100'
+                                    : 'text-green-600 bg-green-50 border border-green-100'
+                                  }`}>
+                                  {lastEntry.glucose}
+                                </div>
+                                {lastEntry.units > 0 && (
+                                  <div className={`text-[10px] font-bold px-1 py-0.5 rounded-md w-full max-w-[45px] text-center border ${isDark ? 'bg-blue-900/20 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                    {lastEntry.units}<span className="text-[8px] ml-0.5 opacity-70">U</span>
+                                  </div>
+                                )}
+                                {lastEntry.carbs > 0 && (
+                                  <div className={`text-[9px] font-bold px-1 py-0.5 rounded-md w-full max-w-[45px] text-center border mt-0.5 ${isDark ? 'bg-blue-900/10 text-blue-300 border-blue-800/50' : 'bg-blue-50/50 text-blue-600 border-blue-100'}`}>
+                                    {lastEntry.carbs}<span className="text-[7px] ml-0.5 opacity-70">cho</span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center text-gray-300 text-[10px] py-2">-</div>
+                            )}
+                          </td>
+                        );
+                      };
+
+                      return (
+                        <tr key={dateIdx} className={isDark ? 'hover:bg-gray-700/30' : 'hover:bg-gray-50'}>
+                          <td className={`sticky left-0 z-10 px-2 py-3 text-[10px] font-black whitespace-nowrap align-middle border-r ${isDark ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-textMain border-gray-100'}`}>
+                            {dateKey}
+                          </td>
+                          {settings.variableInsulinEnabled ? (
+                            settings.insulinSegments.map((segment, segIdx) => (
+                              <React.Fragment key={segIdx}>
+                                {renderCell(segment.startTime, segment.endTime, `${segment.startTime.slice(0, 5)}-${segment.endTime.slice(0, 5)}`)}
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            <>
+                              {renderCell('06:00', '11:00', 'Colazione')}
+                              {renderCell('11:00', '17:00', 'Pranzo')}
+                              {renderCell('17:00', '23:59', 'Cena')}
+                            </>
+                          )}
+                          <td className="px-2 py-3 text-center align-middle">
+                            {totalDailyUnits > 0 ? (
+                              <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${isDark ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-textMain'}`}>
+                                {totalDailyUnits.toFixed(1)}
+                              </span>
+                            ) : <span className="text-gray-300">-</span>}
+                          </td>
+                        </tr>
+                      );
+                    }).filter(Boolean);
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* --- STORICO DETTAGLIATO (Ultimi 3) --- */}
+        <section>
+          <div className="flex items-center justify-between mb-4 px-2">
+            <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>Diario</h3>
+            {/* MODIFICA: Bottone visibile se > 3 */}
+            {history.length > 3 && (
               <button
                 onClick={() => setShowFullHistory(true)}
                 className={`text-xs font-black uppercase tracking-wider flex items-center gap-1 ${isDark ? 'text-primary' : 'text-primary'}`}
               >
-                Mostra Tutti <ChevronRight size={14} />
+                Altro <ChevronRight size={14} />
               </button>
             )}
           </div>
@@ -351,7 +617,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             {recentHistory.map((entry) => (
               <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > 180 ? 'bg-orange-100 text-orange-600' : (entry.glucose < 70 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > maxTIR ? 'bg-orange-100 text-orange-600' : (entry.glucose < minTIR ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
                     {entry.glucose}
                   </div>
                   <div>
@@ -360,10 +626,12 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  {/* Dose Fatta */}
-                  <p className="text-lg font-black text-primary">{entry.units} U</p>
+                  {entry.units > 0 ? (
+                    <p className="text-lg font-black text-primary">{entry.units} U</p>
+                  ) : (
+                    <p className="text-xs font-bold text-gray-400 uppercase py-1">Glicemia</p>
+                  )}
 
-                  {/* Dose Consigliata (Se diversa) */}
                   {entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider">Cons. {entry.recommendedUnits} U</span>
@@ -381,7 +649,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
         </section>
       </div>
 
-      {/* MODALE CRONOLOGIA COMPLETA */}
+      {/* MODALE CRONOLOGIA COMPLETA (Lista) */}
       {showFullHistory && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFullHistory(false)}></div>
@@ -397,7 +665,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                 {history.map((entry) => (
                   <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > 180 ? 'bg-orange-100 text-orange-600' : (entry.glucose < 70 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${entry.glucose > maxTIR ? 'bg-orange-100 text-orange-600' : (entry.glucose < minTIR ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
                         {entry.glucose}
                       </div>
                       <div>
@@ -406,7 +674,12 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
-                      <p className="text-lg font-black text-primary">{entry.units} U</p>
+                      {entry.units > 0 ? (
+                        <p className="text-lg font-black text-primary">{entry.units} U</p>
+                      ) : (
+                        <p className="text-xs font-bold text-gray-400 uppercase py-1">Glicemia</p>
+                      )}
+
                       {entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-[9px] font-bold text-textMuted uppercase tracking-wider">Cons. {entry.recommendedUnits} U</span>
@@ -421,6 +694,245 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE ANALISI PASTI COMPLETA (Tabella Completa) */}
+      {showFullMealAnalysis && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFullMealAnalysis(false)}></div>
+          <div className={`relative w-full max-w-5xl max-h-[90vh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+            <div className={`flex items-center justify-between p-6 border-b shrink-0 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <div>
+                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-textMain'}`}>Analisi Pasti Completa</h3>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-textMuted">Tutti i giorni registrati</p>
+              </div>
+              <button onClick={() => setShowFullMealAnalysis(false)} className={`p-2 rounded-full ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              <div className={`rounded-2xl overflow-hidden border ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100'}`}>
+                <table className="w-full">
+                  <thead>
+                    <tr className={isDark ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                      <th className={`sticky left-0 top-0 z-20 px-2 py-2 text-left text-[9px] font-black uppercase tracking-wider ${isDark ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
+                        Data
+                      </th>
+                      {settings.variableInsulinEnabled ? (
+                        settings.insulinSegments.map((segment, idx) => (
+                          <th key={idx} className={`sticky top-0 z-10 px-1 py-2 text-center min-w-[50px] ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                            <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
+                              <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {segment.startTime.slice(0, 5)}
+                              </span>
+                              <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {segment.endTime.slice(0, 5)}
+                              </span>
+                            </div>
+                          </th>
+                        ))
+                      ) : (
+                        <>
+                          {[['06:00', '11:00'], ['11:00', '17:00'], ['17:00', '23:59']].map((range, i) => (
+                            <th key={i} className={`sticky top-0 z-10 px-1 py-2 text-center min-w-[50px] ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                              <div className="flex flex-col items-center justify-center gap-0.5 leading-tight">
+                                <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{range[0]}</span>
+                                <span className={`text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{range[1]}</span>
+                              </div>
+                            </th>
+                          ))}
+                        </>
+                      )}
+                      <th className={`sticky top-0 z-10 px-2 py-2 text-center text-[9px] font-black uppercase tracking-wider ${isDark ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span>TOT U</span>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200/20">
+                    {(() => {
+                      const oldestEntry = history.length > 0 ? new Date(Math.min(...history.map(e => new Date(e.timestamp).getTime()))) : new Date();
+                      const today = new Date(); today.setHours(0, 0, 0, 0); oldestEntry.setHours(0, 0, 0, 0);
+                      const daysDiff = Math.floor((today.getTime() - oldestEntry.getTime()) / (86400000));
+                      const allDays = Array.from({ length: Math.max(daysDiff + 1, 7) }, (_, i) => {
+                        const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0); return d;
+                      });
+
+                      return allDays.map((date, dateIdx) => {
+                        const dateKey = date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+                        const dayEntries = history.filter(e => {
+                          const entryDate = new Date(e.timestamp);
+                          entryDate.setHours(0, 0, 0, 0);
+                          return entryDate.getTime() === date.getTime();
+                        });
+
+                        const totalDailyUnits = dayEntries.reduce((sum, e) => sum + (e.units || 0), 0);
+                        if (dayEntries.length === 0) return null;
+
+                        const getEntriesInTimeSlot = (startTime: string, endTime: string) => {
+                          return dayEntries.filter(e => {
+                            const entryTime = new Date(e.timestamp);
+                            const entryMinutes = entryTime.getHours() * 60 + entryTime.getMinutes();
+                            const [startH, startM] = startTime.split(':').map(Number);
+                            const [endH, endM] = endTime.split(':').map(Number);
+                            const startMinutes = startH * 60 + startM;
+                            let endMinutes = endH * 60 + endM;
+                            if (endMinutes === 1439) endMinutes = 1440;
+                            return entryMinutes >= startMinutes && entryMinutes < endMinutes;
+                          });
+                        };
+
+                        const renderCell = (startTime: string, endTime: string, label: string) => {
+                          const entries = getEntriesInTimeSlot(startTime, endTime);
+                          const lastEntry = entries[entries.length - 1];
+                          const count = entries.length;
+
+                          return (
+                            <td
+                              className={`px-1 py-2 align-top h-full relative ${count > 0 ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+                              onClick={() => {
+                                if (count > 0) {
+                                  setSelectedSlot({ date: dateKey, label: label, entries: entries });
+                                }
+                              }}
+                            >
+                              {lastEntry ? (
+                                <div className={`flex flex-col gap-1 justify-start items-center h-full min-h-[45px] p-1 rounded-lg ${count > 1 ? (isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100/50 border border-gray-200/50') : ''}`}>
+                                  {count > 1 && (
+                                    <div className="absolute top-0 right-0 flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[7px] font-bold text-white shadow-sm ring-1 ring-white">
+                                      {count}
+                                    </div>
+                                  )}
+                                  <div className={`text-xs font-black px-1.5 py-0.5 rounded-md w-full max-w-[45px] text-center shadow-sm ${lastEntry.glucose < minTIR ? 'text-red-600 bg-red-50 border border-red-100'
+                                    : lastEntry.glucose > maxTIR
+                                      ? lastEntry.glucose > 250 ? 'text-orange-600 bg-orange-50 border border-orange-100' : 'text-yellow-600 bg-yellow-50 border border-yellow-100'
+                                      : 'text-green-600 bg-green-50 border border-green-100'
+                                    }`}>
+                                    {lastEntry.glucose}
+                                  </div>
+                                  {lastEntry.units > 0 && (
+                                    <div className={`text-[10px] font-bold px-1 py-0.5 rounded-md w-full max-w-[45px] text-center border ${isDark ? 'bg-blue-900/20 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                      {lastEntry.units}<span className="text-[8px] ml-0.5 opacity-70">U</span>
+                                    </div>
+                                  )}
+                                  {lastEntry.carbs > 0 && (
+                                    <div className={`text-[9px] font-bold px-1 py-0.5 rounded-md w-full max-w-[45px] text-center border mt-0.5 ${isDark ? 'bg-blue-900/10 text-blue-300 border-blue-800/50' : 'bg-blue-50/50 text-blue-600 border-blue-100'}`}>
+                                      {lastEntry.carbs}<span className="text-[7px] ml-0.5 opacity-70">cho</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-center text-gray-300 text-[10px] py-2">-</div>
+                              )}
+                            </td>
+                          );
+                        };
+
+                        return (
+                          <tr key={dateIdx} className={isDark ? 'hover:bg-gray-700/30' : 'hover:bg-gray-50'}>
+                            <td className={`sticky left-0 z-10 px-2 py-3 text-[10px] font-black whitespace-nowrap align-middle border-r ${isDark ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-textMain border-gray-100'}`}>
+                              {dateKey}
+                            </td>
+                            {settings.variableInsulinEnabled ? (
+                              settings.insulinSegments.map((segment, segIdx) => (
+                                <React.Fragment key={segIdx}>
+                                  {renderCell(segment.startTime, segment.endTime, `${segment.startTime.slice(0, 5)}-${segment.endTime.slice(0, 5)}`)}
+                                </React.Fragment>
+                              ))
+                            ) : (
+                              <>
+                                {renderCell('06:00', '11:00', 'Colazione')}
+                                {renderCell('11:00', '17:00', 'Pranzo')}
+                                {renderCell('17:00', '23:59', 'Cena')}
+                              </>
+                            )}
+                            <td className="px-2 py-3 text-center align-middle">
+                              {totalDailyUnits > 0 ? (
+                                <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${isDark ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-textMain'}`}>
+                                  {totalDailyUnits.toFixed(1)}
+                                </span>
+                              ) : <span className="text-gray-300">-</span>}
+                            </td>
+                          </tr>
+                        );
+                      }).filter(Boolean);
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE POPUP DETTAGLIO FASCIA ORARIA */}
+      {selectedSlot && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedSlot(null)}></div>
+          <div className={`relative w-full max-w-sm rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 ${isDark ? 'bg-gray-900 border border-white/10' : 'bg-white'}`}>
+
+            {/* Intestazione Popup */}
+            <div className={`p-5 border-b flex justify-between items-center ${isDark ? 'border-white/10 bg-gray-800' : 'border-gray-100 bg-gray-50'}`}>
+              <div>
+                <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{selectedSlot.label}</h3>
+                <p className="text-xs font-bold text-textMuted uppercase tracking-wider">{selectedSlot.date}</p>
+              </div>
+              <button onClick={() => setSelectedSlot(null)} className={`p-2 rounded-full ${isDark ? 'bg-gray-700 text-white' : 'bg-white text-gray-500 shadow-sm'}`}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Lista Boli nella fascia */}
+            <div className="p-4 flex flex-col gap-3 max-h-[60vh] overflow-y-auto">
+              {selectedSlot.entries.map((entry, idx) => (
+                <div key={idx} className={`flex items-center justify-between p-3 rounded-2xl border ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
+                  <div className="flex items-center gap-3">
+                    {/* Orario */}
+                    <div className={`px-2 py-1 rounded-lg text-[10px] font-black ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                      {new Date(entry.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+
+                    {/* Dettagli */}
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-sm font-black ${entry.glucose < minTIR ? 'text-red-500'
+                            : entry.glucose > maxTIR ? 'text-yellow-500' : 'text-green-500'
+                          }`}>
+                          {entry.glucose}
+                        </span>
+                        <span className="text-[10px] text-textMuted font-bold">mg/dL</span>
+                      </div>
+                      {entry.carbs > 0 && <span className="text-[10px] text-textMuted font-medium">{entry.carbs}g CHO</span>}
+                    </div>
+                  </div>
+
+                  {/* Unità */}
+                  <div className="flex flex-col items-end">
+                    {entry.units > 0 ? (
+                      <>
+                        <span className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{entry.units}</span>
+                        <span className="text-[9px] font-bold text-textMuted uppercase -mt-1">Unità</span>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">Glicemia</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Totale della fascia */}
+              {selectedSlot.entries.length > 1 && (
+                <div className={`mt-2 pt-3 border-t flex justify-between items-center px-2 ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
+                  <span className="text-xs font-bold text-textMuted uppercase">Totale Insulina</span>
+                  <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-textMain'}`}>
+                    {selectedSlot.entries.reduce((acc, curr) => acc + curr.units, 0).toFixed(1)} U
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

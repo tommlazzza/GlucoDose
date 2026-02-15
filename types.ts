@@ -19,7 +19,9 @@ export interface UserSettings {
   variableInsulinEnabled: boolean; // Attiva le fasce orarie per ISF e ICR
   insulinSegments: InsulinSegment[];
   theme: 'light' | 'dark';
-  language: 'it' | 'en';
+  language: 'it';
+  minGlucoseTarget?: number;
+  maxGlucoseTarget?: number;
 }
 
 export interface HistoryEntry {
@@ -29,7 +31,7 @@ export interface HistoryEntry {
   carbs: number;
   units: number;
   recommendedUnits?: number;
-  type: 'bolus' | 'basal';
+  type: 'bolus';
   mealType: string;
 }
 

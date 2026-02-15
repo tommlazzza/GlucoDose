@@ -114,7 +114,7 @@ export default function App() {
     localStorage.setItem('gluco_dashboard_foods', JSON.stringify(dashboardFoods));
   }, [dashboardFoods]);
 
-  const handleLogDose = (units: number, glucose: number, carbs: number, type: 'bolus' | 'basal', recommendedUnits?: number) => {
+  const handleLogDose = (units: number, glucose: number, carbs: number, mealType: string, recommendedUnits?: number) => {
     const newEntry: HistoryEntry = {
       id: Date.now().toString(),
       timestamp: new Date(),
@@ -122,8 +122,8 @@ export default function App() {
       carbs,
       units,
       recommendedUnits,
-      type: type,
-      mealType: type === 'basal' ? 'Basale' : 'Pasto'
+      type: 'bolus',
+      mealType: mealType
     };
     setHistory(prev => [newEntry, ...prev]);
   };
@@ -142,7 +142,13 @@ export default function App() {
   const prevStep = () => setOnboardingStep(prev => prev - 1);
 
   const finishOnboarding = () => {
-    setSettings(tempSettings);
+    // Imposta valori di default per TIR se non inseriti
+    const finalSettings = {
+      ...tempSettings,
+      minGlucoseTarget: tempSettings.minGlucoseTarget ?? 70,
+      maxGlucoseTarget: tempSettings.maxGlucoseTarget ?? 180,
+    };
+    setSettings(finalSettings);
     setShowOnboarding(false);
   };
 
@@ -345,12 +351,12 @@ export default function App() {
                     const isLast = idx === tempSettings.insulinSegments.length - 1;
 
                     return (
-                      <div key={idx} className="p-4 rounded-3xl flex flex-col gap-3 bg-appBg/50 border border-textMain/5 shadow-sm">
+                      <div key={idx} className="p-4 rounded-3xl flex flex-col gap-3 bg-white/80 border border-gray-200/50 shadow-sm">
 
                         {/* RIGA ORARI (LINKED) */}
                         <div className="flex justify-between items-center pb-2 border-b border-gray-200/50">
                           <div className="flex items-center gap-2">
-                            <Clock size={14} className="text-textMuted" />
+                            <Clock size={14} className="text-gray-500" />
                             {/* INIZIO */}
                             <input
                               type="time"
@@ -361,7 +367,7 @@ export default function App() {
                               className={`appearance-none bg-transparent font-black text-sm outline-none w-[4.5rem] text-center rounded-lg focus:bg-primary/10 transition-colors text-textMain ${isFirst ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                               style={{ colorScheme: 'light' }}
                             />
-                            <span className="text-textMuted text-xs font-bold">➔</span>
+                            <span className="text-gray-400 text-xs font-bold">➔</span>
                             {/* FINE */}
                             <input
                               type="time"
@@ -389,8 +395,8 @@ export default function App() {
                         {/* RIGA VALORI */}
                         <div className="flex gap-2 items-end">
                           <div className="flex-1">
-                            <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">TARGET</label>
-                            <div className="bg-white rounded-xl p-2 shadow-sm">
+                            <label className="text-[9px] font-black text-gray-500 uppercase block text-center mb-1">TARGET</label>
+                            <div className="bg-white rounded-xl p-2 shadow-sm border border-gray-100">
                               <input
                                 type="number"
                                 inputMode="decimal"
@@ -401,8 +407,8 @@ export default function App() {
                             </div>
                           </div>
                           <div className="flex-1">
-                            <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ISF</label>
-                            <div className="bg-white rounded-xl p-2 shadow-sm">
+                            <label className="text-[9px] font-black text-gray-500 uppercase block text-center mb-1">ISF</label>
+                            <div className="bg-white rounded-xl p-2 shadow-sm border border-gray-100">
                               <input
                                 type="number"
                                 inputMode="decimal"
@@ -413,8 +419,8 @@ export default function App() {
                             </div>
                           </div>
                           <div className="flex-1">
-                            <label className="text-[9px] font-black text-textMuted uppercase block text-center mb-1">ICR</label>
-                            <div className="bg-white rounded-xl p-2 shadow-sm">
+                            <label className="text-[9px] font-black text-gray-500 uppercase block text-center mb-1">ICR</label>
+                            <div className="bg-white rounded-xl p-2 shadow-sm border border-gray-100">
                               <input
                                 type="number"
                                 inputMode="decimal"
@@ -447,7 +453,46 @@ export default function App() {
             <p className="text-textMuted text-sm font-medium mb-8">Personalizzazione finale.</p>
             <div className="w-full space-y-6 mb-10">
               <div className="text-left">
-                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Arrotondamento Unità</label>
+                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-3 block">RANGE GLICEMICO (mg/dL)</label>
+                <div className="flex gap-3 mb-4">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black text-gray-600 uppercase ml-2 mb-2 block">MIN</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={tempSettings.minGlucoseTarget ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setTempSettings({
+                          ...tempSettings,
+                          minGlucoseTarget: val === '' ? undefined : parseFloat(val)
+                        });
+                      }}
+                      placeholder="70"
+                      className="w-full bg-white border-2 border-gray-300 focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-md focus:shadow-lg transition-all placeholder:text-gray-400 placeholder:opacity-50"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black text-gray-600 uppercase ml-2 mb-2 block">MAX</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={tempSettings.maxGlucoseTarget ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setTempSettings({
+                          ...tempSettings,
+                          maxGlucoseTarget: val === '' ? undefined : parseFloat(val)
+                        });
+                      }}
+                      placeholder="180"
+                      className="w-full bg-white border-2 border-gray-300 focus:border-primary rounded-2xl p-4 text-2xl font-black text-textMain outline-none text-center shadow-md focus:shadow-lg transition-all placeholder:text-gray-400 placeholder:opacity-50"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="text-left">
+                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">UNITÀ INSULINA</label>
                 <div className="flex bg-appBg p-1.5 rounded-2xl">
                   <button onClick={() => setTempSettings({ ...tempSettings, doseStep: 0.5 })} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${tempSettings.doseStep === 0.5 ? 'bg-white shadow-sm text-textMain' : 'text-textMuted'}`}>0.5</button>
                   <button onClick={() => setTempSettings({ ...tempSettings, doseStep: 1.0 })} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${tempSettings.doseStep === 1.0 ? 'bg-white shadow-sm text-textMain' : 'text-textMuted'}`}>1.0</button>
