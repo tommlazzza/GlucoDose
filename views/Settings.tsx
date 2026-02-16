@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserSettings, InsulinSegment } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Save, Check, User, Moon, Sun, Zap, Ruler, Plus, Trash2, Clock, Download, Upload, RotateCcw, HardDrive, ChevronLeft, Target } from 'lucide-react';
-import { exportAllData, importAllData, clearAllData, getStorageSize } from '../storageUtils';
+import { Save, Check, User, Moon, Sun, Zap, Ruler, Plus, Trash2, Clock, Download, Upload, RotateCcw, HardDrive, ChevronLeft, Target, FileText } from 'lucide-react';
+import { exportAllDataAsPDF, exportAllData, importAllData, clearAllData, getStorageSize } from '../storageUtils';
 
 interface SettingsProps {
   settings: UserSettings;
@@ -47,6 +47,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
   const [saved, setSaved] = useState(false);
   const [storageSize, setStorageSize] = useState<string>('');
+  const [showPeriodDialog, setShowPeriodDialog] = useState(false);
 
   // Calcola dimensione storage all'avvio
   useEffect(() => {
@@ -158,11 +159,27 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
 
   // --- FUNZIONI BACKUP/RESTORE ---
 
-  const handleExport = () => {
+  const handleExportPDF = async (periodDays: number) => {
     try {
-      exportAllData();
-    } catch (error) {
-      alert('Errore durante l\'esportazione dei dati');
+      setShowPeriodDialog(false);
+      const result = await exportAllDataAsPDF(periodDays);
+      if (result.success) {
+        alert('PDF salvato con successo nei tuoi file!');
+      }
+    } catch (error: any) {
+      alert('Errore durante l\'esportazione del PDF: ' + (error.message || error));
+      console.error(error);
+    }
+  };
+
+  const handleExportJSON = async () => {
+    try {
+      const result = await exportAllData();
+      if (result.success) {
+        alert('Backup JSON salvato con successo nei tuoi file!');
+      }
+    } catch (error: any) {
+      alert('Errore durante l\'esportazione: ' + (error.message || error));
       console.error(error);
     }
   };
@@ -180,6 +197,9 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
         alert('Errore durante l\'importazione: ' + error.message);
         console.error(error);
       });
+
+    // Reset input per permettere di selezionare lo stesso file di nuovo
+    event.target.value = '';
   };
 
   const handleReset = () => {
@@ -395,13 +415,22 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                 <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{storageSize}</span>
               </div>
 
-              {/* Esporta Backup */}
+              {/* Esporta PDF */}
               <button
-                onClick={handleExport}
+                onClick={() => setShowPeriodDialog(true)}
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${isDark ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50' : 'bg-purple-50 text-purple-600 hover:bg-purple-100'}`}
+              >
+                <FileText size={18} strokeWidth={3} />
+                Esporta Report PDF
+              </button>
+
+              {/* Esporta Backup JSON */}
+              <button
+                onClick={handleExportJSON}
                 className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
               >
                 <Download size={18} strokeWidth={3} />
-                Esporta Backup
+                Esporta Backup JSON
               </button>
 
               {/* Importa Backup */}
@@ -426,13 +455,71 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
               </button>
 
               <p className="text-[9px] text-textMuted text-center font-bold leading-relaxed pt-2">
-                Il reset cancella TUTTI i dati in modo permanente. Esporta un backup prima di procedere!
+                Il PDF è un report visivo, il JSON è il backup completo per il ripristino.
               </p>
             </div>
           </Card>
 
         </div>
       </div>
+
+      {/* DIALOG SELEZIONE PERIODO PDF */}
+      {showPeriodDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowPeriodDialog(false)}>
+          <div className={`rounded-3xl p-6 max-w-sm w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`} onClick={(e) => e.stopPropagation()}>
+            <h3 className={`text-xl font-black mb-4 ${isDark ? 'text-white' : 'text-textMain'}`}>Periodo Report</h3>
+            <p className={`text-sm mb-6 ${isDark ? 'text-gray-300' : 'text-textMuted'}`}>
+              Seleziona il periodo da includere nel report PDF:
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => handleExportPDF(7)}
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
+              >
+                Ultima Settimana (7 giorni)
+              </button>
+              <button
+                onClick={() => handleExportPDF(30)}
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
+              >
+                Ultimo Mese (30 giorni)
+              </button>
+              <button
+                onClick={() => handleExportPDF(90)}
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
+              >
+                Ultimi 3 Mesi
+              </button>
+              <button
+                onClick={() => handleExportPDF(180)}
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
+              >
+                Ultimi 6 Mesi
+              </button>
+              <button
+                onClick={() => handleExportPDF(365)}
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
+              >
+                Ultimo Anno
+              </button>
+              <button
+                onClick={() => handleExportPDF(0)}
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
+              >
+                Tutti i Dati
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowPeriodDialog(false)}
+              className={`w-full mt-4 py-3 rounded-xl font-bold text-sm ${isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'}`}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] right-6 z-40 pointer-events-none">
         <button onClick={handleSave} className={`w-16 h-16 rounded-full font-black shadow-2xl flex items-center justify-center transition-all duration-300 transform active:scale-90 pointer-events-auto ${saved ? 'bg-secondary text-gray-900 shadow-secondary/20' : 'bg-primary text-gray-900 shadow-primary/30'}`}>

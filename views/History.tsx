@@ -21,6 +21,30 @@ const AGP_COLORS = {
   INSULIN_BAR: '#3b82f6' // Blu per le barre insulina
 };
 
+// --- COMPONENTE BARRA PERSONALIZZATA ---
+const CustomInsulinBar = (props: any) => {
+  const { x, y, width, height, fill } = props;
+
+  if (!height || height <= 0) return null;
+
+  const fixedWidth = 4;
+  const centerX = x + width / 2;
+  const newX = centerX - fixedWidth / 2;
+  const radius = 2;
+
+  const path = `
+    M${newX},${y + height}
+    L${newX},${y + radius}
+    Q${newX},${y} ${newX + radius},${y}
+    L${newX + fixedWidth - radius},${y}
+    Q${newX + fixedWidth},${y} ${newX + fixedWidth},${y + radius}
+    L${newX + fixedWidth},${y + height}
+    Z
+  `;
+
+  return <path d={path} fill={fill} />;
+};
+
 export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
   const t = TRANSLATIONS[settings.language];
   const isDark = settings.theme === 'dark';
@@ -36,17 +60,15 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
   const minTIR = settings.minGlucoseTarget || 70;
   const maxTIR = settings.maxGlucoseTarget || 180;
 
-  // Aggiorna now ogni minuto per ricalcolare IOB
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(new Date());
-    }, 60000); // Ogni 60 secondi
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
   // --- CALCOLO IOB (Insulina Attiva) ---
   const iobData = useMemo(() => {
-    // Range esteso a 4 ore (240 minuti) prima e dopo
     const halfRange = 240;
     const data = [];
 
@@ -81,11 +103,9 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
       });
     }
 
-    // Punti extra per precisione sui picchi
     injectionTimes.forEach(injTime => {
       const timeRange = now.getTime();
       if (injTime >= timeRange - halfRange * 60000 && injTime <= timeRange + halfRange * 60000) {
-        // Punto appena prima
         const beforeTime = injTime - 1000;
         let valueBefore = 0;
         history.forEach(entry => {
@@ -98,7 +118,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           }
         });
 
-        // Punto appena dopo
         const afterTime = injTime + 1000;
         let valueAfter = 0;
         history.forEach(entry => {
@@ -134,15 +153,14 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
 
   const currentIOB = iobData.find(d => d.isNow)?.value || 0;
 
-  // Calcolo Ticks per asse X IOB (-4h, -2h, Now, +2h, +4h)
   const iobTicks = useMemo(() => {
     const ticks = [];
     const nowTime = now.getTime();
-    ticks.push(nowTime - 4 * 60 * 60 * 1000); // -4h
-    ticks.push(nowTime - 2 * 60 * 60 * 1000); // -2h
-    ticks.push(nowTime);                      // Now
-    ticks.push(nowTime + 2 * 60 * 60 * 1000); // +2h
-    ticks.push(nowTime + 4 * 60 * 60 * 1000); // +4h
+    ticks.push(nowTime - 4 * 60 * 60 * 1000);
+    ticks.push(nowTime - 2 * 60 * 60 * 1000);
+    ticks.push(nowTime);
+    ticks.push(nowTime + 2 * 60 * 60 * 1000);
+    ticks.push(nowTime + 4 * 60 * 60 * 1000);
     return ticks;
   }, [now]);
 
@@ -170,7 +188,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
       }));
   }, [history, now]);
 
-  // Calcolo Ticks per asse X Glicemia (Ogni 4 ore)
   const glucoseTicks = useMemo(() => {
     const ticks = [];
     const start = new Date(now);
@@ -181,7 +198,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
     return ticks;
   }, [now]);
 
-  // Calcola il domain dinamico dell'asse Y (Solo per Glicemia)
   const yAxisDomain = useMemo(() => {
     const glucoseValues = myDayData.map(d => d.glucose).filter(v => v !== null) as number[];
 
@@ -203,7 +219,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
     return [yMin, yMax];
   }, [myDayData, minTIR, maxTIR]);
 
-  // --- COMPONENTE PALLINO PERSONALIZZATO ---
   const CustomizedDot = (props: any) => {
     const { cx, cy, payload } = props;
     if (!cx || !cy || !payload || typeof payload.glucose !== 'number') return null;
@@ -232,9 +247,9 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
     return new Date(date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  const recentHistory = history.slice(0, 3);
+  const recentHistory = [...history].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 3);
+  const sortedHistory = [...history].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  // Limiti asse X per grafico glicemia
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(now);
@@ -288,8 +303,8 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   type="number"
                   scale="time"
                   domain={[
-                    iobTicks[0] - (30 * 60 * 1000), // Aggiungi 30 minuti prima di -4h
-                    iobTicks[iobTicks.length - 1] + (30 * 60 * 1000) // Aggiungi 30 minuti dopo +4h
+                    iobTicks[0] - (30 * 60 * 1000),
+                    iobTicks[iobTicks.length - 1] + (30 * 60 * 1000)
                   ]}
                   ticks={iobTicks}
                   padding={{ left: 15, right: 15 }}
@@ -403,12 +418,12 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   <ReferenceLine yAxisId="glucoseAxis" y={settings.targetBg} stroke={isDark ? '#475569' : '#e2e8f0'} strokeWidth={1} strokeDasharray="3 3" />
                   <ReferenceLine x={now.getTime()} stroke={isDark ? '#6B7280' : '#9CA3AF'} strokeDasharray="3 3" strokeWidth={2} label={{ value: 'Now', position: 'top', fill: isDark ? '#9CA3AF' : '#6B7280', fontSize: 10, fontWeight: 'bold' }} />
 
+                  {/* UTILIZZO DELLA BARRA PERSONALIZZATA */}
                   <Bar
                     yAxisId="insulinAxis"
                     dataKey="units"
-                    barSize={2.5}
+                    shape={<CustomInsulinBar />}
                     fill={AGP_COLORS.INSULIN_BAR}
-                    radius={[2, 2, 0, 0]}
                     isAnimationActive={true}
                   />
 
@@ -517,12 +532,12 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                           let endMinutes = endH * 60 + endM;
                           if (endMinutes === 1439) endMinutes = 1440;
                           return entryMinutes >= startMinutes && entryMinutes < endMinutes;
-                        });
+                        }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // MODIFICA: Ordina per data decrescente
                       };
 
                       const renderCell = (startTime: string, endTime: string, label: string) => {
                         const entries = getEntriesInTimeSlot(startTime, endTime);
-                        const lastEntry = entries[entries.length - 1];
+                        const lastEntry = entries[0]; // MODIFICA: Prendi il primo (il più recente)
                         const count = entries.length;
 
                         return (
@@ -639,10 +654,11 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  {entry.units > 0 ? (
-                    <p className="text-lg font-black text-primary">{entry.units} U</p>
-                  ) : (
+                  {/* LOGICA VISUALIZZAZIONE UNITÀ */}
+                  {entry.mealType === 'Controllo' && entry.units === 0 ? (
                     <p className="text-xs font-bold text-gray-400 uppercase py-1">Glicemia</p>
+                  ) : (
+                    <p className="text-lg font-black text-primary">{entry.units} U</p>
                   )}
 
                   {/* NON mostrare "Consigliato" se è solo insulina (glucose === 0) */}
@@ -676,7 +692,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               <div className="flex flex-col gap-3">
-                {history.map((entry) => (
+                {sortedHistory.map((entry) => (
                   <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
                     <div className="flex items-center gap-3">
                       {entry.glucose > 0 ? (
@@ -696,10 +712,11 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
-                      {entry.units > 0 ? (
-                        <p className="text-lg font-black text-primary">{entry.units} U</p>
-                      ) : (
+                      {/* LOGICA VISUALIZZAZIONE UNITÀ */}
+                      {entry.mealType === 'Controllo' && entry.units === 0 ? (
                         <p className="text-xs font-bold text-gray-400 uppercase py-1">Glicemia</p>
+                      ) : (
+                        <p className="text-lg font-black text-primary">{entry.units} U</p>
                       )}
 
                       {entry.glucose > 0 && entry.recommendedUnits !== undefined && entry.recommendedUnits !== entry.units && (
@@ -805,12 +822,12 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                             let endMinutes = endH * 60 + endM;
                             if (endMinutes === 1439) endMinutes = 1440;
                             return entryMinutes >= startMinutes && entryMinutes < endMinutes;
-                          });
+                          }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // MODIFICA: Ordina per data decrescente
                         };
 
                         const renderCell = (startTime: string, endTime: string, label: string) => {
                           const entries = getEntriesInTimeSlot(startTime, endTime);
-                          const lastEntry = entries[entries.length - 1];
+                          const lastEntry = entries[0]; // MODIFICA: Prendi il primo (il più recente)
                           const count = entries.length;
 
                           return (
@@ -942,13 +959,14 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
 
                   {/* Unità */}
                   <div className="flex flex-col items-end">
-                    {entry.units > 0 ? (
+                    {/* LOGICA VISUALIZZAZIONE UNITÀ NEL POPUP */}
+                    {entry.mealType === 'Controllo' && entry.units === 0 ? (
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">Glicemia</span>
+                    ) : (
                       <>
                         <span className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{entry.units}</span>
                         <span className="text-[9px] font-bold text-textMuted uppercase -mt-1">Unità</span>
                       </>
-                    ) : (
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Glicemia</span>
                     )}
                   </div>
                 </div>

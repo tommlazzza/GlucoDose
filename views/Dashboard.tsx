@@ -70,6 +70,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     now.setMinutes(now.getMinutes() - 15);
     return now.toTimeString().slice(0, 5);
   });
+  const [extraTimeTouched, setExtraTimeTouched] = useState(false);
+
   const [finalDose, setFinalDose] = useState<number>(0);
 
   const totalCarbs = Math.round(selectedFoods.reduce((acc, f) => acc + (f.carbsPerServing * f.weight / 100), 0));
@@ -88,6 +90,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return recentEntries.length > 0 ? recentEntries[0] : null;
+  }, [history]);
+
+  // ULTIME 3 INIEZIONI DI INSULINA (Per il modale di controllo)
+  const recentInsulinEntries = useMemo(() => {
+    return history
+      .filter(e => e.units > 0)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 3);
   }, [history]);
 
   // CATEGORIE PER FILTRO MODALE
@@ -183,23 +193,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const now = new Date();
     now.setMinutes(now.getMinutes() - 15);
     setExtraInsulinTime(now.toTimeString().slice(0, 5));
+    setExtraTimeTouched(false);
     setExtraUnloggedInsulin(0);
     setShowExtraCheckModal(true);
   };
 
-  const handleQuickLogGlucose = () => {
-    const glucoseValue = parseFloat(glucose);
-    if (!glucose || glucoseValue < 20 || glucoseValue > 600) {
-      alert('Inserisci una glicemia valida (20-600 mg/dL)');
-      return;
-    }
-
-    onLogDose(0, glucoseValue, 0, 'Controllo', 0);
-    setGlucose('');
-    onNavigateHistory();
-  };
-
-  // SALVA GLICEMIA PREGRESSA
   const handleSavePastGlucose = () => {
     const glucoseValue = parseFloat(pastGlucoseValue);
     if (!pastGlucoseValue || glucoseValue < 20 || glucoseValue > 600) {
@@ -207,12 +205,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return;
     }
 
-    // Crea un timestamp personalizzato con l'orario scelto
     const now = new Date();
     const [hours, minutes] = pastGlucoseTime.split(':').map(Number);
     const customTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
 
-    // Registra con timestamp personalizzato
     onLogDose(0, glucoseValue, 0, 'Controllo', 0, customTimestamp);
 
     setPastGlucoseValue('');
@@ -220,19 +216,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
     onNavigateHistory();
   };
 
-  // SALVA INSULINA PREGRESSA
   const handleSavePastInsulin = () => {
     if (pastInsulinValue <= 0) {
       alert('Inserisci una quantità di insulina valida');
       return;
     }
 
-    // Crea un timestamp personalizzato con l'orario scelto
     const now = new Date();
     const [hours, minutes] = pastInsulinTime.split(':').map(Number);
     const customTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
 
-    // Registra insulina pregressa con timestamp personalizzato
     onLogDose(pastInsulinValue, 0, 0, 'Insulina', 0, customTimestamp);
 
     setPastInsulinValue(0);
@@ -241,6 +234,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleConfirmExtraCheck = () => {
+    if (extraUnloggedInsulin > 0) {
+      const now = new Date();
+      const [hours, minutes] = extraInsulinTime.split(':').map(Number);
+      const customTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+      onLogDose(extraUnloggedInsulin, 0, 0, 'Insulina', 0, customTimestamp);
+    }
+
     setShowExtraCheckModal(false);
     setFinalDose(calculationDetails.recommendedTotal);
     setShowResultModal(true);
@@ -248,7 +248,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const confirmLog = () => {
     const glucoseToLog = parseFloat(glucose) || calculationDetails.usedGlucose;
-    onLogDose(finalDose, glucoseToLog, totalCarbs, 'Pasto', calculationDetails.recommendedTotal);
+    // MODIFICA: Se i carboidrati sono 0, registriamo come "Correzione" invece di "Pasto"
+    const mealType = totalCarbs > 0 ? 'Pasto' : 'Correzione';
+
+    onLogDose(finalDose, glucoseToLog, totalCarbs, mealType, calculationDetails.recommendedTotal);
     setShowResultModal(false);
     setGlucose('');
     setSelectedFoods([]);
@@ -260,8 +263,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setFinalDose(prev => Math.max(0, parseFloat((increment ? prev + step : prev - step).toFixed(1))));
   };
 
-  // Il calcolo richiede glicemia (inserita o recente) E almeno un cibo selezionato
-  const isCalculationDisabled = (!glucose && !lastValidGlucose) || selectedFoods.length === 0;
+  // MODIFICA: Il calcolo è disabilitato SOLO se mancano sia la glicemia sia il cibo.
+  // Basta uno dei due per abilitare il tasto (es. solo glicemia per correzione, o solo cibo per pasto).
+  const hasGlucoseData = !!glucose || !!lastValidGlucose;
+  const hasFoodData = selectedFoods.length > 0;
+  const isCalculationDisabled = !hasGlucoseData && !hasFoodData;
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden">
@@ -528,14 +534,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <h3 className="text-xl font-black mb-3">Controllo Sicurezza</h3>
             <p className="text-sm font-bold text-textMuted mb-6">Insulina non registrata nelle ultime 4 ore?</p>
 
+            {/* --- NUOVA SEZIONE: ULTIMI INSERIMENTI --- */}
+            <div className={`w-full p-4 rounded-2xl mb-6 flex flex-col gap-2 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+              <p className="text-[9px] font-black uppercase tracking-widest text-textMuted text-left">Ultimi Inserimenti</p>
+              {recentInsulinEntries.length > 0 ? (
+                recentInsulinEntries.map((entry, idx) => (
+                  <div key={idx} className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Clock size={12} className={isDark ? 'text-gray-400' : 'text-gray-500'} />
+                      <span className={`text-xs font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {new Date(entry.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="text-[10px] text-textMuted uppercase ml-1 font-bold">
+                        {entry.mealType === 'Insulina' ? 'Bolo' : entry.mealType}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{entry.units} U</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-textMuted italic text-left">Nessun inserimento recente.</p>
+              )}
+            </div>
+            {/* --- FINE NUOVA SEZIONE --- */}
+
             <div className="w-full mb-6">
               <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Orario iniezione</label>
               <div className={`w-full p-2.5 rounded-[2rem] ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
                 <input
                   type="time"
                   value={extraInsulinTime}
-                  onChange={(e) => setExtraInsulinTime(e.target.value)}
-                  className={`w-full bg-transparent py-2 px-2 font-bold text-center text-lg outline-none ${isDark ? 'text-white' : 'text-textMain'}`}
+                  onChange={(e) => {
+                    setExtraInsulinTime(e.target.value);
+                    setExtraTimeTouched(true);
+                  }}
+                  className={`w-full bg-transparent py-2 px-2 font-bold text-center text-lg outline-none ${extraTimeTouched
+                    ? (isDark ? 'text-white' : 'text-textMain')
+                    : 'text-gray-400'
+                    }`}
                   style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 />
               </div>
@@ -593,7 +629,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 )}
               </div>
               <div className={`rounded-3xl p-5 mb-2 space-y-3 border ${isDark ? 'bg-gray-800/50 border-white/5' : 'bg-appBg/20 border-transparent'}`}>
-                <div className="flex justify-between items-center"><span className="text-[9px] font-black text-textMuted uppercase tracking-wider">{t.meal} ({totalCarbs}g)</span><span className="text-sm font-black">{calculationDetails.mealUnits} U</span></div>
+                {totalCarbs > 0 && (
+                  <div className="flex justify-between items-center"><span className="text-[9px] font-black text-textMuted uppercase tracking-wider">{t.meal} ({totalCarbs}g)</span><span className="text-sm font-black">{calculationDetails.mealUnits} U</span></div>
+                )}
                 <div className="flex justify-between items-center"><span className="text-[9px] font-black text-textMuted uppercase tracking-wider">{t.correction}</span><span className="text-sm font-black">{calculationDetails.correctionUnits} U</span></div>
                 {(currentIOB > 0 || extraUnloggedInsulin > 0) && (
                   <div className="flex justify-between items-center text-amber-600">

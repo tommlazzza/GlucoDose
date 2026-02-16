@@ -6,12 +6,12 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,      // Dura 2 secondi
-      backgroundColor: "#ECF4E8",    // Colore di sfondo
-      showSpinner: false,            // Nasconde la rotella di caricamento (opzionale)
-      androidScaleType: "CENTER_CROP", // <--- IL TRUCCO MAGICO
-      splashFullScreen: true,
-      splashImmersive: true,
+      launchShowDuration: 2000,
+      backgroundColor: "#ECF4E8",
+      showSpinner: false,
+      androidScaleType: "FIT_CENTRE",
+      //splashFullScreen: true,
+      //splashImmersive: true,
     },
   },
 };
