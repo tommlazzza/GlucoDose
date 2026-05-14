@@ -19,7 +19,7 @@ export interface UserSettings {
   variableInsulinEnabled: boolean; // Attiva le fasce orarie per ISF e ICR
   insulinSegments: InsulinSegment[];
   theme: 'light' | 'dark';
-  language: 'it';
+  language: 'it' | 'en';
   minGlucoseTarget?: number;
   maxGlucoseTarget?: number;
 }

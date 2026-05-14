@@ -232,17 +232,17 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
         <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-right duration-300">
 
           <Card title={t.yourName} icon={<User size={20} />} colorClass="bg-blue-100 text-blue-500" isDark={isDark}>
-            <InputField label="Nome Utente" value={localSettings.userName} onChange={(val) => handleChange('userName', val)} type="text" placeholder="Il tuo nome" isDark={isDark} />
+            <InputField label={t.userNameLabel} value={localSettings.userName} onChange={(val) => handleChange('userName', val)} type="text" placeholder={t.yourName} isDark={isDark} />
           </Card>
 
           {/* CARD RANGE GLICEMICO */}
-          <Card title="Range Glicemico" icon={<Target size={20} />} colorClass="bg-green-100 text-green-500" isDark={isDark}>
+          <Card title={t.glucoseRange} icon={<Target size={20} />} colorClass="bg-green-100 text-green-500" isDark={isDark}>
             <p className="text-[10px] font-bold text-textMuted mb-4 leading-relaxed">
-              Imposta i valori min e max per la fascia verde nel grafico glicemico. Tipicamente 70-180 mg/dL.
+              {t.glucoseRangeDesc}
             </p>
             <div className="flex gap-3">
               <div className="flex flex-col gap-2 flex-1">
-                <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>MIN (mg/dL)</label>
+                <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{t.minTarget}</label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -257,7 +257,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                 />
               </div>
               <div className="flex flex-col gap-2 flex-1">
-                <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>MAX (mg/dL)</label>
+                <label className={`text-[10px] font-black uppercase ml-1 tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{t.maxTarget}</label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -292,10 +292,10 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
 
             {!localSettings.variableInsulinEnabled ? (
               <div className="space-y-4">
-                <InputField label="Target Glicemico (mg/dL)" value={localSettings.targetBg} onChange={(val) => handleChange('targetBg', parseFloat(val) || 0)} isDark={isDark} />
+                <InputField label={t.targetBgLabel} value={localSettings.targetBg} onChange={(val) => handleChange('targetBg', parseFloat(val) || 0)} isDark={isDark} />
                 <div className="flex gap-3">
-                  <InputField label="ISF (Sensibilità)" value={localSettings.isf} onChange={(val) => handleChange('isf', parseFloat(val) || 0)} isDark={isDark} />
-                  <InputField label="ICR (Rapporto)" value={localSettings.icr} onChange={(val) => handleChange('icr', parseFloat(val) || 0)} isDark={isDark} />
+                  <InputField label={t.isfLabel} value={localSettings.isf} onChange={(val) => handleChange('isf', parseFloat(val) || 0)} isDark={isDark} />
+                  <InputField label={t.icrLabel} value={localSettings.icr} onChange={(val) => handleChange('icr', parseFloat(val) || 0)} isDark={isDark} />
                 </div>
               </div>
             ) : (
@@ -386,7 +386,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                   );
                 })}
                 <button onClick={handleAddSegment} className={`w-full py-4 mt-2 rounded-2xl border-2 border-dashed flex items-center justify-center gap-2 font-black uppercase text-[10px] tracking-widest transition-all active:scale-98 ${isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-800' : 'border-primary/30 text-primary hover:bg-primary/5'}`}>
-                  <Plus size={16} strokeWidth={3} /> Nuova Fascia
+                  <Plus size={16} strokeWidth={3} /> {t.newSegment}
                 </button>
               </div>
             )}
@@ -399,19 +399,26 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
             </div>
           </Card>
 
-          <Card title="Aspetto" icon={<Sun size={20} />} colorClass="bg-purple-100 text-purple-500" isDark={isDark}>
+          <Card title={t.appearance} icon={<Sun size={20} />} colorClass="bg-purple-100 text-purple-500" isDark={isDark}>
             <div className={`flex rounded-2xl p-1.5 ${isDark ? 'bg-gray-700/50' : 'bg-appBg'}`}>
               <button onClick={() => handleChange('theme', 'light')} className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${localSettings.theme === 'light' ? 'bg-white text-textMain shadow-sm' : 'text-textMuted'}`}><Sun size={14} /> {t.light}</button>
               <button onClick={() => handleChange('theme', 'dark')} className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${localSettings.theme === 'dark' ? 'bg-gray-600 text-white shadow-sm' : 'text-textMuted'}`}><Moon size={14} /> {t.dark}</button>
             </div>
           </Card>
 
+          <Card title={t.language} icon={<User size={20} />} colorClass="bg-blue-100 text-blue-500" isDark={isDark}>
+            <div className={`flex rounded-2xl p-1.5 ${isDark ? 'bg-gray-700/50' : 'bg-appBg'}`}>
+              <button onClick={() => handleChange('language', 'it')} className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${localSettings.language === 'it' ? (isDark ? 'bg-gray-600 text-white shadow-sm' : 'bg-white text-textMain shadow-sm') : 'text-textMuted'}`}>Italiano</button>
+              <button onClick={() => handleChange('language', 'en')} className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${localSettings.language === 'en' ? (isDark ? 'bg-gray-600 text-white shadow-sm' : 'bg-white text-textMain shadow-sm') : 'text-textMuted'}`}>English</button>
+            </div>
+          </Card>
+
           {/* CARD BACKUP E DATI */}
-          <Card title="Backup e Dati" icon={<HardDrive size={20} />} colorClass="bg-green-100 text-green-600" isDark={isDark}>
+          <Card title={t.backupAndData} icon={<HardDrive size={20} />} colorClass="bg-green-100 text-green-600" isDark={isDark}>
             <div className="space-y-3">
               {/* Info spazio occupato */}
               <div className={`p-3 rounded-xl flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-appBg'}`}>
-                <span className="text-xs font-bold text-textMuted">Spazio occupato</span>
+                <span className="text-xs font-bold text-textMuted">{t.storageUsed}</span>
                 <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{storageSize}</span>
               </div>
 
@@ -421,7 +428,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                 className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${isDark ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50' : 'bg-purple-50 text-purple-600 hover:bg-purple-100'}`}
               >
                 <FileText size={18} strokeWidth={3} />
-                Esporta Report PDF
+                {t.exportPdf}
               </button>
 
               {/* Esporta Backup JSON */}
@@ -430,13 +437,13 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                 className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
               >
                 <Download size={18} strokeWidth={3} />
-                Esporta Backup JSON
+                {t.exportJson}
               </button>
 
               {/* Importa Backup */}
               <label className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer ${isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
                 <Upload size={18} strokeWidth={3} />
-                Importa Backup
+                {t.importBackup}
                 <input
                   type="file"
                   accept=".json"
@@ -451,11 +458,11 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                 className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
               >
                 <RotateCcw size={18} strokeWidth={3} />
-                Reset Completo
+                {t.completeReset}
               </button>
 
               <p className="text-[9px] text-textMuted text-center font-bold leading-relaxed pt-2">
-                Il PDF è un report visivo, il JSON è il backup completo per il ripristino.
+                {t.backupDesc}
               </p>
             </div>
           </Card>
@@ -467,9 +474,9 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
       {showPeriodDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowPeriodDialog(false)}>
           <div className={`rounded-3xl p-6 max-w-sm w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`} onClick={(e) => e.stopPropagation()}>
-            <h3 className={`text-xl font-black mb-4 ${isDark ? 'text-white' : 'text-textMain'}`}>Periodo Report</h3>
+            <h3 className={`text-xl font-black mb-4 ${isDark ? 'text-white' : 'text-textMain'}`}>{t.reportPeriod}</h3>
             <p className={`text-sm mb-6 ${isDark ? 'text-gray-300' : 'text-textMuted'}`}>
-              Seleziona il periodo da includere nel report PDF:
+              {t.reportPeriodDesc}
             </p>
 
             <div className="space-y-2">
@@ -477,37 +484,37 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
                 onClick={() => handleExportPDF(7)}
                 className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
               >
-                Ultima Settimana (7 giorni)
+                {t.lastWeek}
               </button>
               <button
                 onClick={() => handleExportPDF(30)}
                 className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
               >
-                Ultimo Mese (30 giorni)
+                {t.lastMonth}
               </button>
               <button
                 onClick={() => handleExportPDF(90)}
                 className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
               >
-                Ultimi 3 Mesi
+                {t.last3Months}
               </button>
               <button
                 onClick={() => handleExportPDF(180)}
                 className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
               >
-                Ultimi 6 Mesi
+                {t.last6Months}
               </button>
               <button
                 onClick={() => handleExportPDF(365)}
                 className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
               >
-                Ultimo Anno
+                {t.lastYear}
               </button>
               <button
                 onClick={() => handleExportPDF(0)}
                 className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-appBg text-textMain hover:bg-gray-200'}`}
               >
-                Tutti i Dati
+                {t.allData}
               </button>
             </div>
 
@@ -515,7 +522,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave, onBack }) 
               onClick={() => setShowPeriodDialog(false)}
               className={`w-full mt-4 py-3 rounded-xl font-bold text-sm ${isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-600'}`}
             >
-              Annulla
+              {t.cancel}
             </button>
           </div>
         </div>

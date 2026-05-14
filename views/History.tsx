@@ -261,7 +261,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
         <header className="pt-2 flex justify-between items-center">
           <div>
             <h2 className={`text-2xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-textMain'}`}>{t.monitoring}</h2>
-            <p className="text-textMuted text-xs font-bold uppercase tracking-widest">Dati Giornalieri</p>
+            <p className="text-textMuted text-xs font-bold uppercase tracking-widest">{t.dailyData}</p>
           </div>
         </header>
 
@@ -443,8 +443,8 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center px-6">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isDark ? 'bg-gray-800' : 'bg-appBg'}`}><Activity size={32} className="text-textMuted opacity-30" /></div>
-                <p className={`text-sm font-bold ${isDark ? 'text-gray-500' : 'text-textMuted'}`}>Nessun dato glicemico per oggi.</p>
-                <p className="text-[10px] uppercase font-black text-primary mt-1">Inserisci una misurazione nella Home</p>
+                <p className={`text-sm font-bold ${isDark ? 'text-gray-500' : 'text-textMuted'}`}>{t.noGlucoseToday}</p>
+                <p className="text-[10px] uppercase font-black text-primary mt-1">{t.insertMeasurement}</p>
               </div>
             )}
           </div>
@@ -454,14 +454,14 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
         <section>
           <div className="flex items-center justify-between mb-4 px-2">
             <div>
-              <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>Analisi Pasti</h3>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-textMuted">Glicemie e Unità per fascia oraria</p>
+              <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>{t.mealAnalysis}</h3>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-textMuted">{t.mealAnalysisDesc}</p>
             </div>
             <button
               onClick={() => setShowFullMealAnalysis(true)}
               className={`text-xs font-black uppercase tracking-wider flex items-center gap-1 ${isDark ? 'text-primary' : 'text-primary'}`}
             >
-              Altro <ChevronRight size={14} />
+              {t.more} <ChevronRight size={14} />
             </button>
           </div>
 
@@ -471,7 +471,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                 <thead>
                   <tr className={isDark ? 'bg-gray-700/50' : 'bg-gray-50'}>
                     <th className={`sticky left-0 z-10 px-2 py-2 text-left text-[9px] font-black uppercase tracking-wider ${isDark ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
-                      Data
+                      {t.date}
                     </th>
                     {settings.variableInsulinEnabled ? (
                       settings.insulinSegments.map((segment, idx) => (
@@ -500,7 +500,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                     )}
                     <th className={`px-2 py-2 text-center text-[9px] font-black uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                       <div className="flex flex-col items-center gap-0.5">
-                        <span>TOT U</span>
+                        <span>{t.totU}</span>
                       </div>
                     </th>
                   </tr>
@@ -520,7 +520,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                       });
 
                       const totalDailyUnits = dayEntries.reduce((sum, e) => sum + (e.units || 0), 0);
-                      if (dayEntries.length === 0 && dateIdx > 0) return null;
 
                       const getEntriesInTimeSlot = (startTime: string, endTime: string) => {
                         return dayEntries.filter(e => {
@@ -596,9 +595,9 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                             ))
                           ) : (
                             <>
-                              {renderCell('06:00', '11:00', 'Colazione')}
-                              {renderCell('11:00', '17:00', 'Pranzo')}
-                              {renderCell('17:00', '23:59', 'Cena')}
+                              {renderCell('06:00', '11:00', t.breakfast)}
+                              {renderCell('11:00', '17:00', t.lunch)}
+                              {renderCell('17:00', '23:59', t.dinner)}
                             </>
                           )}
                           <td className="px-2 py-3 text-center align-middle">
@@ -621,18 +620,18 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
         {/* --- STORICO DETTAGLIATO (Ultimi 3) --- */}
         <section>
           <div className="flex items-center justify-between mb-4 px-2">
-            <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>Diario</h3>
+            <h3 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-textMain'}`}>{t.diary}</h3>
             {history.length > 3 && (
               <button
                 onClick={() => setShowFullHistory(true)}
                 className={`text-xs font-black uppercase tracking-wider flex items-center gap-1 ${isDark ? 'text-primary' : 'text-primary'}`}
               >
-                Altro <ChevronRight size={14} />
+                {t.more} <ChevronRight size={14} />
               </button>
             )}
           </div>
           <div className="flex flex-col gap-3">
-            {recentHistory.length === 0 && <p className="text-center text-textMuted text-xs py-4">Nessun evento registrato.</p>}
+            {recentHistory.length === 0 && <p className="text-center text-textMuted text-xs py-4">{t.noEventRecorded}</p>}
             {recentHistory.map((entry) => (
               <div key={entry.id} className={`p-4 rounded-[1.5rem] flex items-center justify-between border transition-all ${isDark ? 'bg-gray-800 border-white/5' : 'bg-white border-gray-100 shadow-sm'}`}>
                 <div className="flex items-center gap-3">
@@ -685,7 +684,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFullHistory(false)}></div>
           <div className={`relative w-full max-w-2xl max-h-[80vh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
             <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-textMain'}`}>Cronologia Completa</h3>
+              <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{t.fullHistory}</h3>
               <button onClick={() => setShowFullHistory(false)} className={`p-2 rounded-full ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
                 <X size={20} />
               </button>
@@ -745,8 +744,8 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
           <div className={`relative w-full max-w-5xl max-h-[90vh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
             <div className={`flex items-center justify-between p-6 border-b shrink-0 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
               <div>
-                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-textMain'}`}>Analisi Pasti Completa</h3>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-textMuted">Tutti i giorni registrati</p>
+                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-textMain'}`}>{t.fullMealAnalysis}</h3>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-textMuted">{t.allDaysRecorded}</p>
               </div>
               <button onClick={() => setShowFullMealAnalysis(false)} className={`p-2 rounded-full ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
                 <X size={20} />
@@ -758,7 +757,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                   <thead>
                     <tr className={isDark ? 'bg-gray-700/50' : 'bg-gray-50'}>
                       <th className={`sticky left-0 top-0 z-20 px-2 py-2 text-left text-[9px] font-black uppercase tracking-wider ${isDark ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
-                        Data
+                        {t.date}
                       </th>
                       {settings.variableInsulinEnabled ? (
                         settings.insulinSegments.map((segment, idx) => (
@@ -787,7 +786,7 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                       )}
                       <th className={`sticky top-0 z-10 px-2 py-2 text-center text-[9px] font-black uppercase tracking-wider ${isDark ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
                         <div className="flex flex-col items-center gap-0.5">
-                          <span>TOT U</span>
+                          <span>{t.totU}</span>
                         </div>
                       </th>
                     </tr>
@@ -810,7 +809,6 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                         });
 
                         const totalDailyUnits = dayEntries.reduce((sum, e) => sum + (e.units || 0), 0);
-                        if (dayEntries.length === 0) return null;
 
                         const getEntriesInTimeSlot = (startTime: string, endTime: string) => {
                           return dayEntries.filter(e => {
@@ -886,9 +884,9 @@ export const HistoryView: React.FC<HistoryProps> = ({ history, settings }) => {
                               ))
                             ) : (
                               <>
-                                {renderCell('06:00', '11:00', 'Colazione')}
-                                {renderCell('11:00', '17:00', 'Pranzo')}
-                                {renderCell('17:00', '23:59', 'Cena')}
+                                {renderCell('06:00', '11:00', t.breakfast)}
+                                {renderCell('11:00', '17:00', t.lunch)}
+                                {renderCell('17:00', '23:59', t.dinner)}
                               </>
                             )}
                             <td className="px-2 py-3 text-center align-middle">

@@ -158,13 +158,13 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={handleCloseModal}></div>
           <div className={`relative w-full max-w-sm rounded-[2.5rem] p-7 shadow-2xl transition-all animate-in zoom-in-95 duration-300 flex flex-col max-h-full overflow-y-auto no-scrollbar ${isDark ? 'bg-gray-900 text-white border border-white/10' : 'bg-white'}`}>
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black">Nuovo Alimento</h3>
+              <h3 className="text-xl font-black">{t.newFood}</h3>
               <button onClick={handleCloseModal} className={`p-2 rounded-full transition-colors ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}><X size={20} /></button>
             </div>
 
             <div className="space-y-5">
               <div>
-                <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">Nome</label>
+                <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">{t.name}</label>
                 <input
                   className={`w-full border-2 border-transparent rounded-2xl p-4 font-bold outline-none focus:border-primary transition-all ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-50 text-textMain'}`}
                   value={newFood.name}
@@ -185,7 +185,7 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">Quantità</label>
+                  <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">{t.quantityAmount}</label>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -197,7 +197,7 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
                 </div>
               </div>
               <div>
-                <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">Unità di Misura</label>
+                <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">{t.unitOfMeasure}</label>
                 <div className="relative">
                   <select
                     className={`w-full border-2 border-transparent rounded-2xl p-4 font-bold outline-none focus:border-primary transition-all appearance-none ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-50 text-textMain'}`}
@@ -211,7 +211,7 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
                 </div>
               </div>
               <div>
-                <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">Categoria</label>
+                <label className="text-[10px] uppercase font-black text-textMuted ml-3 mb-2 block">{t.category}</label>
                 <div className="relative">
                   <select
                     className={`w-full border-2 border-transparent rounded-2xl p-4 font-bold outline-none focus:border-primary transition-all appearance-none ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-50 text-textMain'}`}
@@ -229,7 +229,7 @@ export const FoodLibrary: React.FC<FoodLibraryProps> = ({ foods, onAddFood, sett
                 onClick={handleSaveFood}
                 className={`w-full text-gray-900 font-black py-5 rounded-[1.8rem] mt-2 shadow-xl active:scale-95 transition-all hover:scale-[1.02] ${isDark ? 'bg-primary shadow-primary/20' : 'bg-secondary shadow-secondary/20'}`}
               >
-                Salva Alimento
+                {t.saveFood}
               </button>
             </div>
           </div>

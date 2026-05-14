@@ -5,8 +5,8 @@ import { FoodLibrary } from './views/FoodLibrary';
 import { HistoryView } from './views/History';
 import { Settings } from './views/Settings';
 import { UserSettings, ViewState, HistoryEntry, FoodItem, InsulinSegment, SelectedFoodItem } from './types';
-import { DEFAULT_SETTINGS, MOCK_HISTORY, MOCK_FOODS } from './constants';
-import { User, Check, Target, Zap, ArrowRight, ChevronLeft, Clock, Plus, Trash2 } from 'lucide-react'
+import { DEFAULT_SETTINGS, MOCK_HISTORY, MOCK_FOODS, TRANSLATIONS } from './constants';
+import { User, Check, Target, Zap, ArrowRight, ChevronLeft, Clock, Plus, Trash2, Globe } from 'lucide-react'
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import img_logo from './assets/icon.png';
@@ -49,9 +49,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [showOnboarding, setShowOnboarding] = useState(settings.userName === 'Nome');
+  const isNewUser = settings.userName === 'Nome' || settings.userName === 'Name';
+  const [showOnboarding, setShowOnboarding] = useState(isNewUser);
   const [onboardingStep, setOnboardingStep] = useState(1);
-  const [tempSettings, setTempSettings] = useState<UserSettings>(settings);
+  const [tempSettings, setTempSettings] = useState<UserSettings>(isNewUser ? DEFAULT_SETTINGS : settings);
+  const t = TRANSLATIONS[tempSettings.language || settings.language || 'it'];
 
   useEffect(() => {
     const bgColor = settings.theme === 'dark' ? '#0f172a' : '#ECF4E8';
@@ -257,19 +259,52 @@ export default function App() {
             <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center text-primary mb-6">
               <User size={40} strokeWidth={2.5} />
             </div>
-            <h2 className="text-3xl font-black text-textMain mb-2">Benvenuto!</h2>
-            <p className="text-textMuted font-medium mb-8 leading-relaxed">Configuriamo GlucoDose. Come ti chiami?</p>
+            <h2 className="text-3xl font-black text-textMain mb-2">{t.welcome}</h2>
+            <p className="text-textMuted font-medium mb-8 leading-relaxed">{t.onboardingName}</p>
             <input
               type="text"
-              value={tempSettings.userName === 'Nome' ? '' : tempSettings.userName}
+              value={tempSettings.userName === 'Nome' || tempSettings.userName === 'Name' ? '' : tempSettings.userName}
               onChange={(e) => setTempSettings({ ...tempSettings, userName: e.target.value })}
               onFocus={(e) => e.target.select()}
-              placeholder="nome"
+              placeholder={t.name.toLowerCase()}
               className="w-full bg-appBg border-2 border-transparent focus:border-primary rounded-[1.8rem] p-5 text-lg font-bold text-textMain outline-none text-center transition-all mb-8 placeholder:opacity-30 placeholder:text-textMain"
             />
           </div>
         );
       case 2:
+        return (
+          <div className="flex flex-col items-center text-center animate-in fade-in slide-in-from-right-4 duration-500 w-full h-full justify-center px-6">
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 mb-6">
+              <Globe size={40} strokeWidth={2.5} />
+            </div>
+            <h2 className="text-3xl font-black text-textMain mb-2">{t.language}</h2>
+            <p className="text-textMuted font-medium mb-8 leading-relaxed">Choose your language / Scegli la tua lingua</p>
+
+            <div className="flex flex-col gap-3 w-full mb-10">
+              <button
+                onClick={() => setTempSettings({ ...tempSettings, language: 'it' })}
+                className={`w-full p-5 rounded-3xl border-2 transition-all flex items-center gap-4 ${tempSettings.language === 'it' ? 'bg-primary/20 border-primary' : 'bg-appBg border-transparent'}`}
+              >
+                <span className="text-2xl">🇮🇹</span>
+                <div className="text-left">
+                  <p className="font-black text-sm uppercase text-textMain">Italiano</p>
+                </div>
+                {tempSettings.language === 'it' && <Check className="ml-auto text-primary" />}
+              </button>
+              <button
+                onClick={() => setTempSettings({ ...tempSettings, language: 'en' })}
+                className={`w-full p-5 rounded-3xl border-2 transition-all flex items-center gap-4 ${tempSettings.language === 'en' ? 'bg-primary/20 border-primary' : 'bg-appBg border-transparent'}`}
+              >
+                <span className="text-2xl">🇬🇧</span>
+                <div className="text-left">
+                  <p className="font-black text-sm uppercase text-textMain">English</p>
+                </div>
+                {tempSettings.language === 'en' && <Check className="ml-auto text-primary" />}
+              </button>
+            </div>
+          </div>
+        );
+      case 3:
         return (
           <div className="flex flex-col items-center text-center animate-in fade-in slide-in-from-right-4 duration-500 w-full h-full justify-center px-6">
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 mb-6">
@@ -302,7 +337,7 @@ export default function App() {
             </div>
           </div>
         );
-      case 3:
+      case 4:
         return (
           <div className="flex flex-col h-full w-full overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500 px-4 pt-4">
             <div className="text-center shrink-0">
@@ -315,7 +350,7 @@ export default function App() {
                 // --- MODALITÀ FISSA ---
                 <div className="space-y-4 my-auto px-2">
                   <div className="p-5 rounded-[2rem] bg-appBg/50 border border-textMain/5 text-left">
-                    <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Target Glicemico (mg/dL)</label>
+                    <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">{t.targetGlucoseLabel}</label>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -326,7 +361,7 @@ export default function App() {
                     />
                   </div>
                   <div className="p-5 rounded-[2rem] bg-appBg/50 border border-textMain/5 text-left">
-                    <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Sensibilità (ISF)</label>
+                    <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">{t.sensitivityLabel}</label>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -337,7 +372,7 @@ export default function App() {
                     />
                   </div>
                   <div className="p-5 rounded-[2rem] bg-appBg/50 border border-textMain/5 text-left">
-                    <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">Rapporto (ICR)</label>
+                    <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">{t.ratioLabel}</label>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -451,7 +486,7 @@ export default function App() {
             </div>
           </div>
         );
-      case 4:
+      case 5:
         return (
           <div className="flex flex-col items-center text-center animate-in fade-in slide-in-from-right-4 duration-500 w-full h-full justify-center px-6">
             <div className="w-20 h-20 bg-secondary/30 rounded-full flex items-center justify-center text-secondary mb-6">
@@ -461,10 +496,10 @@ export default function App() {
             <p className="text-textMuted text-sm font-medium mb-8">Personalizzazione finale.</p>
             <div className="w-full space-y-6 mb-10">
               <div className="text-left">
-                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-3 block">RANGE GLICEMICO (mg/dL)</label>
+                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-3 block">{t.glucoseRangeLabel}</label>
                 <div className="flex gap-3 mb-4">
                   <div className="flex-1">
-                    <label className="text-[10px] font-black text-gray-600 uppercase ml-2 mb-2 block">MIN</label>
+                    <label className="text-[10px] font-black text-gray-600 uppercase ml-2 mb-2 block">{t.minLabel}</label>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -482,7 +517,7 @@ export default function App() {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-[10px] font-black text-gray-600 uppercase ml-2 mb-2 block">MAX</label>
+                    <label className="text-[10px] font-black text-gray-600 uppercase ml-2 mb-2 block">{t.maxLabel}</label>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -502,7 +537,7 @@ export default function App() {
                 </div>
               </div>
               <div className="text-left">
-                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">UNITÀ INSULINA</label>
+                <label className="text-[10px] font-black text-textMuted uppercase ml-3 mb-2 block">{t.insulinUnitLabel}</label>
                 <div className="flex bg-appBg p-1.5 rounded-2xl">
                   <button onClick={() => setTempSettings({ ...tempSettings, doseStep: 0.5 })} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${tempSettings.doseStep === 0.5 ? 'bg-white shadow-sm text-textMain' : 'text-textMuted'}`}>0.5</button>
                   <button onClick={() => setTempSettings({ ...tempSettings, doseStep: 1.0 })} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${tempSettings.doseStep === 1.0 ? 'bg-white shadow-sm text-textMain' : 'text-textMuted'}`}>1.0</button>
@@ -543,7 +578,7 @@ export default function App() {
         <div className="absolute top-[-10%] right-[-20%] w-96 h-96 rounded-full blur-3xl mix-blend-multiply animate-blob opacity-40 bg-primary/20 pointer-events-none" />
         <div className="absolute top-[20%] left-[-10%] w-72 h-72 rounded-full blur-3xl mix-blend-multiply animate-blob animation-delay-2000 opacity-30 bg-secondary/30 pointer-events-none" />
         <div className="pt-[calc(env(safe-area-inset-top)+3rem)] px-8 pb-4 flex justify-center gap-2 z-10 shrink-0">
-          {[1, 2, 3, 4].map(s => (
+          {[1, 2, 3, 4, 5].map(s => (
             <div key={s} className={`h-1.5 rounded-full transition-all duration-300 ${onboardingStep === s ? 'w-8 bg-primary' : 'w-2 bg-gray-200'}`} />
           ))}
         </div>
@@ -553,21 +588,21 @@ export default function App() {
         <div className="w-full max-w-md mx-auto px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-4 z-20 bg-white/80 backdrop-blur-sm">
           {onboardingStep === 1 && (
             <button
-              disabled={!tempSettings.userName.trim() || tempSettings.userName === 'Nome'}
+              disabled={!tempSettings.userName.trim() || tempSettings.userName === 'Nome' || tempSettings.userName === 'Name'}
               onClick={nextStep}
               className="w-full py-5 bg-primary text-gray-900 font-black rounded-[1.8rem] text-lg shadow-xl shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 transition-all"
             >
               Avanti <ArrowRight size={22} />
             </button>
           )}
-          {(onboardingStep === 2 || onboardingStep === 3 || onboardingStep === 4) && (
+          {(onboardingStep >= 2 && onboardingStep <= 5) && (
             <div className="flex gap-3 w-full">
               <button onClick={prevStep} className="p-5 bg-gray-100 text-gray-500 rounded-[1.8rem] hover:bg-gray-200 active:scale-95 transition-all"><ChevronLeft size={24} /></button>
               <button
-                onClick={onboardingStep === 4 ? finishOnboarding : nextStep}
-                className={`flex-1 py-5 font-black rounded-[1.8rem] text-lg shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all ${onboardingStep === 4 ? 'bg-secondary text-gray-900' : 'bg-primary text-gray-900'}`}
+                onClick={onboardingStep === 5 ? finishOnboarding : nextStep}
+                className={`flex-1 py-5 font-black rounded-[1.8rem] text-lg shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all ${onboardingStep === 5 ? 'bg-secondary text-gray-900' : 'bg-primary text-gray-900'}`}
               >
-                {onboardingStep === 4 ? 'Inizia' : 'Avanti'} {onboardingStep === 4 ? <Check size={22} strokeWidth={3} /> : <ArrowRight size={22} />}
+                {onboardingStep === 5 ? t.start : t.next} {onboardingStep === 5 ? <Check size={22} strokeWidth={3} /> : <ArrowRight size={22} />}
               </button>
             </div>
           )}

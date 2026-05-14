@@ -178,9 +178,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return t.morning || 'Buongiorno';
-    if (hour < 18) return t.afternoon || 'Buon pomeriggio';
-    return t.evening || 'Buonasera';
+    if (hour < 12) return t.categories.morning || 'Buongiorno';
+    if (hour < 18) return t.categories.afternoon || 'Buon pomeriggio';
+    return t.categories.evening || 'Buonasera';
   };
 
   const handleCalculateClick = () => {
@@ -299,7 +299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all active:scale-95 ${isDark ? 'bg-gray-800 border-blue-500/60 hover:bg-gray-750 hover:border-blue-500' : 'bg-white border-blue-300 hover:border-blue-400 shadow-sm'}`}
             >
               <Droplets size={24} className="text-blue-500" strokeWidth={2.5} />
-              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-textMain'}`}>Glicemia Pregressa</span>
+              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-textMain'}`}>{t.pastGlucose}</span>
             </button>
 
             <button
@@ -313,7 +313,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all active:scale-95 ${isDark ? 'bg-gray-800 border-amber-500/60 hover:bg-gray-750 hover:border-amber-500' : 'bg-white border-amber-300 hover:border-amber-400 shadow-sm'}`}
             >
               <Syringe size={24} className="text-primary" strokeWidth={2.5} />
-              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-textMain'}`}>Insulina Pregressa</span>
+              <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-textMain'}`}>{t.pastInsulin}</span>
             </button>
           </div>
 
@@ -340,7 +340,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {!glucose && lastValidGlucose && (
               <div className={`mt-3 pt-3 border-t flex items-center justify-between ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-textMuted">Ultima rilevazione</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-textMuted">{t.lastReading}</p>
                   <p className={`text-xs font-bold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     {new Date(lastValidGlucose.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })}
                   </p>
@@ -411,12 +411,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-gray-800 text-blue-400' : 'bg-blue-100 text-blue-500'}`}>
               <Droplets size={32} strokeWidth={2.5} />
             </div>
-            <h3 className="text-xl font-black mb-3">Glicemia Pregressa</h3>
+            <h3 className="text-xl font-black mb-3">{t.pastGlucose}</h3>
             <p className="text-sm font-bold text-textMuted mb-6">Registra una misurazione effettuata in precedenza</p>
 
             {/* ORARIO */}
             <div className="w-full mb-6">
-              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Orario misurazione</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">{t.measurementTime}</label>
               <div className={`w-full p-2.5 rounded-[2rem] ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
                 <input
                   type="time"
@@ -430,7 +430,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* VALORE GLICEMIA */}
             <div className="w-full mb-8">
-              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Valore glicemia (mg/dL)</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">{t.glucoseValueLabel}</label>
               <input
                 type="number"
                 inputMode="decimal"
@@ -448,7 +448,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               onClick={handleSavePastGlucose}
               className="w-full py-5 bg-secondary text-gray-900 font-black rounded-[2rem] text-lg flex items-center justify-center gap-3"
             >
-              <Check size={24} strokeWidth={3} /> SALVA GLICEMIA
+              <Check size={24} strokeWidth={3} /> {t.saveGlucose}
             </button>
           </div>
         </div>
@@ -469,12 +469,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-gray-800 text-primary' : 'bg-amber-100 text-primary'}`}>
               <Syringe size={32} strokeWidth={2.5} />
             </div>
-            <h3 className="text-xl font-black mb-3">Insulina Pregressa</h3>
+            <h3 className="text-xl font-black mb-3">{t.pastInsulin}</h3>
             <p className="text-sm font-bold text-textMuted mb-6">Registra un'iniezione effettuata in precedenza</p>
 
             {/* ORARIO */}
             <div className="w-full mb-6">
-              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Orario iniezione</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">{t.injectionTime}</label>
               <div className={`w-full p-2.5 rounded-[2rem] ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
                 <input
                   type="time"
@@ -488,7 +488,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* QUANTITÀ INSULINA */}
             <div className="w-full mb-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Unità somministrate</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">{t.unitsAdministered}</label>
             </div>
             <div className={`flex items-center justify-between w-full p-2.5 rounded-[2rem] mb-8 ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
               <button
@@ -510,7 +510,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               onClick={handleSavePastInsulin}
               className="w-full py-5 bg-primary text-gray-900 font-black rounded-[2rem] text-lg flex items-center justify-center gap-3"
             >
-              <Check size={24} strokeWidth={3} /> SALVA INSULINA
+              <Check size={24} strokeWidth={3} /> {t.saveInsulin}
             </button>
           </div>
         </div>
@@ -531,8 +531,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-gray-800 text-primary' : 'bg-amber-100 text-amber-500'}`}>
               <Syringe size={32} strokeWidth={2.5} />
             </div>
-            <h3 className="text-xl font-black mb-3">Controllo Sicurezza</h3>
-            <p className="text-sm font-bold text-textMuted mb-6">Insulina non registrata nelle ultime 4 ore?</p>
+            <h3 className="text-xl font-black mb-3">{t.safetyCheck}</h3>
+            <p className="text-sm font-bold text-textMuted mb-6">{t.unloggedInsulin}</p>
 
             {/* --- NUOVA SEZIONE: ULTIMI INSERIMENTI --- */}
             <div className={`w-full p-4 rounded-2xl mb-6 flex flex-col gap-2 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
@@ -559,7 +559,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* --- FINE NUOVA SEZIONE --- */}
 
             <div className="w-full mb-6">
-              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Orario iniezione</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">{t.injectionTime}</label>
               <div className={`w-full p-2.5 rounded-[2rem] ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
                 <input
                   type="time"
@@ -578,7 +578,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             <div className="w-full mb-2">
-              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">Unità somministrate</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-textMuted mb-3 block text-left">{t.unitsAdministered}</label>
             </div>
             <div className={`flex items-center justify-between w-full p-2.5 rounded-[2rem] mb-8 ${isDark ? 'bg-gray-800' : 'bg-gray-50 border-2 border-gray-100'}`}>
               <button onClick={() => setExtraUnloggedInsulin(Math.max(0, extraUnloggedInsulin - 0.5))} className={`w-14 h-14 rounded-full flex items-center justify-center text-primary shadow-sm ${isDark ? 'bg-gray-700' : 'bg-white'}`}><Minus size={24} /></button>
@@ -617,11 +617,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <span className="text-5xl font-black text-primary">{finalDose}</span>
                   <button onClick={() => adjustFinalDose(true)} className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-primary ${isDark ? 'bg-gray-700' : 'bg-white'}`}><Plus size={28} /></button>
                 </div>
-                <p className="text-[9px] font-black text-primary uppercase tracking-widest mt-4">Calcolato: {calculationDetails.recommendedTotal} U</p>
+                <p className="text-[9px] font-black text-primary uppercase tracking-widest mt-4">{t.calculated}: {calculationDetails.recommendedTotal} U</p>
 
                 {!glucose && lastValidGlucose && (
                   <div className={`mt-4 px-4 py-2 rounded-xl inline-block ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-textMuted mb-1">Glicemia usata</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-textMuted mb-1">{t.usedGlucose}</p>
                     <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-textMain'}`}>
                       {lastValidGlucose.glucose} mg/dL • {new Date(lastValidGlucose.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false })}
                     </p>
@@ -697,7 +697,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ))}
               {filteredFoods.length === 0 && (
                 <div className="text-center py-10 opacity-50">
-                  <p className="text-sm font-bold">Nessun alimento trovato.</p>
+                  <p className="text-sm font-bold">{t.noFoodAdded}</p>
                 </div>
               )}
             </div>

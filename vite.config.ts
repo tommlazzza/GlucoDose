@@ -12,6 +12,13 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
     },
+
+    // --- AGGIUNTO QUESTO BLOCCO PER SBLOCCARE NGROK ---
+    preview: {
+      allowedHosts: true,
+    },
+    // --------------------------------------------------
+
     plugins: [react()],
 
     // 2. Ho migliorato la definizione delle variabili per evitare errori "process is not defined"
